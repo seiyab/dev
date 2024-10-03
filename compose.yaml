@@ -1,0 +1,12 @@
+services:
+  node:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    volumes:
+      - ./projects:/home/user/projects
+      - ./entry.sh:/usr/bin/entry.sh
+    ports:
+      - "7022:22"
+    user: root
+    command: entry.sh
