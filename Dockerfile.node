@@ -13,10 +13,5 @@ RUN mkdir "$WORK_DIR" && chown "$USER_NAME:$USER_NAME" "$WORK_DIR"
 COPY .ssh/authorized_keys "$WORK_DIR/.ssh/authorized_keys"
 RUN chown "$USER_NAME:$USER_NAME" "$WORK_DIR/.ssh/authorized_keys"
 
-RUN mkdir "$WORK_DIR"/projects && chown -R "$USER_NAME:$USER_NAME" "$WORK_DIR"/projects
-VOLUME ["$WORK_DIR/projects"]
-
-
-USER "$USER_NAME"
-WORKDIR "/home/$USER_NAME"
-
+RUN apt install -y zsh neovim
+RUN chsh -s /usr/bin/zsh "$USER_NAME"

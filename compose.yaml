@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile.node
     volumes:
       - ./projects:/home/user/projects
+      - ./.zshrc:/home/user/.zshrc
       - ./entry.sh:/usr/bin/entry.sh
     ports:
       - "7022:22"
