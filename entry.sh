@@ -1,4 +1,4 @@
+#!/bin/bash
 set -e
-chown -R user:user /home/user/projects
-chown user:user /home/user/.zshrc
+chown -R user:user /home/user/projects/*
 service ssh start -D

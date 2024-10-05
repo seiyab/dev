@@ -7,7 +7,9 @@ function _git-branch() {
     git branch 2> /dev/null | grep '*' | sed -n -e 's/^\* \(.*\)/[\1] /p'
 }
 
+source ~/.env
+
 setopt PROMPT_SUBST
-export PROMPT='%n@%2~ $(_git-branch)%# '
+export PROMPT='[$DEV_ENV]%n@%2~ $(_git-branch)%# '
 
 bindkey -v

@@ -4,10 +4,22 @@ services:
       context: .
       dockerfile: Dockerfile.node
     volumes:
-      - ./projects:/home/user/projects
-      - ./.zshrc:/home/user/.zshrc
-      - ./entry.sh:/usr/bin/entry.sh
+      - ./projects/javascript:/home/user/projects/javascript
+      # - vscode-server:/home/user/.vscode-server
     ports:
       - "7022:22"
     user: root
     command: entry.sh
+  go:
+    build:
+      context: .
+      dockerfile: Dockerfile.golang
+    volumes:
+      - ./projects/go:/home/user/projects/go
+      # - vscode-server:/home/user/.vscode-server
+    ports:
+      - "7023:22"
+    user: root
+    command: entry.sh
+# volumes:
+#   vscode-server:
