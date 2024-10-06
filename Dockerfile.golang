@@ -11,8 +11,9 @@ ENV WORK_DIR "/home/$USER_NAME"
 
 RUN groupadd -r "$USER_NAME" && useradd -r -g "$USER_NAME" "$USER_NAME"
 RUN mkdir "$WORK_DIR" && chown "$USER_NAME:$USER_NAME" "$WORK_DIR"
-RUN echo "DEV_ENV=golang" > "$WORK_DIR/.env" \
-  && echo 'PATH=/usr/local/go/bin:$PATH' >> "$WORK_DIR/.env"
+RUN echo "DEV_ENV=golang" > "$WORK_DIR/.profile" \
+  && echo 'PATH=/usr/local/go/bin:$PATH' >> "$WORK_DIR/.profile" \
+  && echo "export GOPATH=$WORK_DIR/projects/gopath" >> "$WORK_DIR/.profile"
 
 COPY .ssh/authorized_keys "$WORK_DIR/.ssh/authorized_keys"
 RUN chown "$USER_NAME:$USER_NAME" "$WORK_DIR/.ssh/authorized_keys"

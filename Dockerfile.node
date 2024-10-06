@@ -1,4 +1,4 @@
-FROM node:22
+FROM node:22-bullseye
 
 RUN apt-get update && apt install -y openssh-server
 RUN echo "PubkeyAuthentication yes" > /etc/ssh/sshd_config.d/auth.conf \
@@ -11,7 +11,7 @@ ENV WORK_DIR "/home/$USER_NAME"
 
 RUN groupadd -r "$USER_NAME" && useradd -r -g "$USER_NAME" "$USER_NAME"
 RUN mkdir "$WORK_DIR" && chown "$USER_NAME:$USER_NAME" "$WORK_DIR"
-RUN echo "DEV_ENV=nodejs" > "$WORK_DIR/.env"
+RUN echo "DEV_ENV=nodejs" > "$WORK_DIR/.profile"
 
 COPY .ssh/authorized_keys "$WORK_DIR/.ssh/authorized_keys"
 RUN chown "$USER_NAME:$USER_NAME" "$WORK_DIR/.ssh/authorized_keys"

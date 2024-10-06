@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.node
     volumes:
       - ./projects/javascript:/home/user/projects/javascript
-      # - vscode-server:/home/user/.vscode-server
+      - vs-node:/home/user/.vscode-server
     ports:
       - "7022:22"
     user: root
@@ -16,10 +16,12 @@ services:
       dockerfile: Dockerfile.golang
     volumes:
       - ./projects/go:/home/user/projects/go
-      # - vscode-server:/home/user/.vscode-server
+      - ./projects/gopath:/home/user/projects/gopath
+      - vs-go:/home/user/.vscode-server
     ports:
       - "7023:22"
     user: root
     command: entry.sh
-# volumes:
-#   vscode-server:
+volumes:
+   vs-node:
+   vs-go:
