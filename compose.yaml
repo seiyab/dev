@@ -4,24 +4,14 @@ services:
       context: .
       dockerfile: Dockerfile.node
     volumes:
-      - ./projects/javascript:/home/user/projects/javascript
+      - projects-node:/home/user/projects
       - vs-node:/home/user/.vscode-server
+      - history-node:/home/user/.history
     ports:
       - "7022:22"
     user: root
     command: entry.sh
-  go:
-    build:
-      context: .
-      dockerfile: Dockerfile.golang
-    volumes:
-      - ./projects/go:/home/user/projects/go
-      - ./projects/gopath:/home/user/projects/gopath
-      - vs-go:/home/user/.vscode-server
-    ports:
-      - "7023:22"
-    user: root
-    command: entry.sh
 volumes:
    vs-node:
-   vs-go:
+   projects-node:
+   history-node:
