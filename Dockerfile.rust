@@ -1,0 +1,27 @@
+FROM rust:1-bullseye
+
+RUN rustup default stable \
+  && rustup component add rustfmt
+
+RUN apt-get update && apt install -y openssh-server
+RUN echo "PubkeyAuthentication yes" > /etc/ssh/sshd_config.d/auth.conf \
+  && echo "PasswordAuthentication no" >> /etc/ssh/sshd_config.d/auth.conf
+
+RUN apt install -y zsh neovim
+
+ENV USER_NAME user
+ENV WORK_DIR "/home/$USER_NAME"
+ENV OWNER "$USER_NAME:$USER_NAME"
+
+RUN groupadd -r "$USER_NAME" && useradd -r -g "$USER_NAME" "$USER_NAME"
+RUN mkdir "$WORK_DIR" && chown "$USER_NAME:$USER_NAME" "$WORK_DIR"
+RUN echo "DEV_ENV=rust" > "$WORK_DIR/.profile" \
+  && echo 'PATH=$PATH:/usr/local/cargo/bin' >> "$WORK_DIR/.profile" \
+  && echo 'PATH=$PATH:$HOME/.cargo/bin' >> "$WORK_DIR/.profile"
+
+COPY --chown="$OWNER" .ssh/authorized_keys "$WORK_DIR/.ssh/authorized_keys"
+RUN chsh -s /usr/bin/zsh "$USER_NAME"
+
+COPY --chown="$OWNER" .zshrc "$WORK_DIR/.zshrc"
+COPY --chown="$OWNER" entry.sh /usr/bin/entry.sh
+COPY .gitconfig "$WORK_DIR/.gitconfig"

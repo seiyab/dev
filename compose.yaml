@@ -1,4 +1,26 @@
+x-references:
+  post-start: &post-start
+    - command: |
+        chown -R user:user /home/user/projects && \
+        chown -R user:user /home/user/.history && \
+        chown -R user:user /home/user/.vscode-server && \
+        echo "done"
+      user: root
+
 services:
+  rust:
+    build:
+      context: .
+      dockerfile: Dockerfile.rust
+    volumes:
+      - projects-rust:/home/user/projects
+      - vs-node:/home/user/.vscode-server
+      - history-node:/home/user/.history
+    ports:
+      - "7024:22"
+    user: root
+    command: entry.sh
+    # post_start: *post-start
   node:
     build:
       context: .
@@ -11,7 +33,9 @@ services:
       - "7022:22"
     user: root
     command: entry.sh
+    # post_start: *post-start
 volumes:
-   vs-node:
-   projects-node:
-   history-node:
+  vs-node:
+  projects-node:
+  projects-rust:
+  history-node:
