@@ -6,6 +6,10 @@ x-references:
         chown -R user:user /home/user/.vscode-server && \
         echo "done"
       user: root
+      privileged: true
+    - command: service ssh start
+      user: root
+      privileged: true
 
 services:
   rust:
@@ -18,9 +22,9 @@ services:
       - history-node:/home/user/.history
     ports:
       - "7024:22"
-    user: root
-    command: entry.sh
-    # post_start: *post-start
+    user: user
+    command: tail -f /dev/null
+    post_start: *post-start
   node:
     build:
       context: .
@@ -31,11 +35,26 @@ services:
       - history-node:/home/user/.history
     ports:
       - "7022:22"
-    user: root
-    command: entry.sh
-    # post_start: *post-start
+    user: user
+    command: tail -f /dev/null
+    post_start: *post-start
+  golang:
+    build:
+      context: .
+      dockerfile: Dockerfile.golang
+    volumes:
+      - projects-golang:/home/user/projects
+      - vs-node:/home/user/.vscode-server
+      - history-golang:/home/user/.history
+    ports:
+      - "7023:22"
+    user: user
+    command: tail -f /dev/null
+    post_start: *post-start
 volumes:
   vs-node:
   projects-node:
-  projects-rust:
   history-node:
+  projects-rust:
+  projects-golang:
+  history-golang:

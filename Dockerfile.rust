@@ -23,5 +23,4 @@ COPY --chown="$OWNER" .ssh/authorized_keys "$WORK_DIR/.ssh/authorized_keys"
 RUN chsh -s /usr/bin/zsh "$USER_NAME"
 
 COPY --chown="$OWNER" .zshrc "$WORK_DIR/.zshrc"
-COPY --chown="$OWNER" entry.sh /usr/bin/entry.sh
-COPY .gitconfig "$WORK_DIR/.gitconfig"
+COPY --chown="$OWNER" .gitconfig "$WORK_DIR/.gitconfig"

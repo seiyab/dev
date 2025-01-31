@@ -21,4 +21,3 @@ RUN chsh -s /usr/bin/zsh "$USER_NAME"
 
 COPY --chown="$OWNER" .zshrc "$WORK_DIR/.zshrc"
 COPY --chown="$OWNER" .gitconfig "$WORK_DIR/.gitconfig"
-COPY entry.sh /usr/bin/entry.sh

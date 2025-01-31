@@ -8,6 +8,7 @@ RUN apt install -y zsh neovim
 
 ENV USER_NAME user
 ENV WORK_DIR "/home/$USER_NAME"
+ENV OWNER "$USER_NAME:$USER_NAME"
 
 RUN groupadd -r "$USER_NAME" && useradd -r -g "$USER_NAME" "$USER_NAME"
 RUN mkdir "$WORK_DIR" && chown "$USER_NAME:$USER_NAME" "$WORK_DIR"
@@ -15,11 +16,9 @@ RUN echo "DEV_ENV=golang" > "$WORK_DIR/.profile" \
   && echo 'PATH=/usr/local/go/bin:$PATH' >> "$WORK_DIR/.profile" \
   && echo "export GOPATH=$WORK_DIR/projects/gopath" >> "$WORK_DIR/.profile"
 
-COPY .ssh/authorized_keys "$WORK_DIR/.ssh/authorized_keys"
-RUN chown "$USER_NAME:$USER_NAME" "$WORK_DIR/.ssh/authorized_keys"
+COPY --chown="$OWNER" .ssh/authorized_keys "$WORK_DIR/.ssh/authorized_keys"
+
 RUN chsh -s /usr/bin/zsh "$USER_NAME"
 
-COPY .zshrc "$WORK_DIR/.zshrc"
-RUN chown user:user /home/user/.zshrc
-COPY entry.sh /usr/bin/entry.sh
-COPY .gitconfig "$WORK_DIR/.gitconfig"
+COPY --chown="$OWNER" .zshrc "$WORK_DIR/.zshrc"
+COPY --chown="$OWNER" .gitconfig "$WORK_DIR/.gitconfig"
