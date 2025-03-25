@@ -1,60 +1,89 @@
 x-references:
-  post-start: &post-start
-    - command: |
+  post-start: 
+    - &chown
+      command: |
         chown -R user:user /home/user/projects && \
         chown -R user:user /home/user/.history && \
         chown -R user:user /home/user/.vscode-server && \
         echo "done"
       user: root
       privileged: true
+
+services:
+  ssh:
+    build:
+      context: .
+      dockerfile: Dockerfile.ssh
+    volumes:
+      - projects-golang:/home/user/projects/golang
+      - history-ssh:/home/user/.history
+    ports:
+      - "7022:22"
+    user: user
+    command: tail -f /dev/null
+    post_start:
+    - *chown
     - command: service ssh start
       user: root
       privileged: true
-
-services:
   rust:
     build:
       context: .
       dockerfile: Dockerfile.rust
     volumes:
       - projects-rust:/home/user/projects
-      - vs-node:/home/user/.vscode-server
-      - history-node:/home/user/.history
-    ports:
-      - "7024:22"
+      - vss:/home/user/.vscode-server
+      - history-rust:/home/user/.history
     user: user
     command: tail -f /dev/null
-    post_start: *post-start
+    post_start:
+    - *chown
   node:
     build:
       context: .
       dockerfile: Dockerfile.node
     volumes:
       - projects-node:/home/user/projects
-      - vs-node:/home/user/.vscode-server
+      - vss:/home/user/.vscode-server
       - history-node:/home/user/.history
-    ports:
-      - "7022:22"
     user: user
     command: tail -f /dev/null
-    post_start: *post-start
+    post_start:
+    - *chown
+  bun:
+    build:
+      context: .
+      dockerfile: Dockerfile.bun
+    volumes:
+      - projects-bun:/home/user/projects
+      - vss:/home/user/.vscode-server
+      - history-bun:/home/user/.history
+    user: user
+    command: tail -f /dev/null
+    post_start:
+    - *chown
   golang:
     build:
       context: .
       dockerfile: Dockerfile.golang
     volumes:
       - projects-golang:/home/user/projects
-      - vs-node:/home/user/.vscode-server
+      - vss:/home/user/.vscode-server
       - history-golang:/home/user/.history
     ports:
       - "7023:22"
     user: user
     command: tail -f /dev/null
-    post_start: *post-start
+    post_start:
+    - *chown
 volumes:
-  vs-node:
+  vss:
+  history-ssh:
   projects-node:
   history-node:
+  projects-bun:
+  history-bun:
   projects-rust:
+  history-rust:
   projects-golang:
   history-golang:
