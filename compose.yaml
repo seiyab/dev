@@ -76,6 +76,18 @@ services:
     command: tail -f /dev/null
     post_start:
     - *chown
+  cython:
+    build:
+      context: .
+      dockerfile: Dockerfile.cython
+    volumes:
+      - projects-python:/home/user/projects
+      - vss:/home/user/.vscode-server
+      - history-python:/home/user/.history
+    user: user
+    command: tail -f /dev/null
+    post_start:
+    - *chown
 volumes:
   vss:
   history-ssh:
@@ -87,3 +99,5 @@ volumes:
   history-rust:
   projects-golang:
   history-golang:
+  projects-python:
+  history-python:
