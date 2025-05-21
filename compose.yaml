@@ -16,13 +16,18 @@ services:
       dockerfile: Dockerfile.ssh
     volumes:
       - projects-golang:/home/user/projects/golang
+      - projects-node:/home/user/projects/node
       - history-ssh:/home/user/.history
     ports:
       - "7022:22"
     user: user
     command: tail -f /dev/null
     post_start:
-    - *chown
+    - command: |
+        chown -R user:user /home/user/projects && \
+        echo "done"
+      user: root
+      privileged: true
     - command: service ssh start
       user: root
       privileged: true
@@ -46,6 +51,8 @@ services:
       - projects-node:/home/user/projects
       - vss:/home/user/.vscode-server
       - history-node:/home/user/.history
+    ports:
+      - "8000:8000"
     user: user
     command: tail -f /dev/null
     post_start:
@@ -76,6 +83,12 @@ services:
     command: tail -f /dev/null
     post_start:
     - *chown
+#  python:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile.python
+#    user: user
+#    command: tail -f /dev/null
 volumes:
   vss:
   history-ssh:

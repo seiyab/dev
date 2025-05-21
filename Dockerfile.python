@@ -1,0 +1,18 @@
+FROM python:3.13-bullseye
+
+RUN apt-get update && apt install -y zsh neovim
+
+ENV USER_NAME user
+ENV WORK_DIR "/home/$USER_NAME"
+ENV OWNER "$USER_NAME:$USER_NAME"
+
+RUN groupadd -r "$USER_NAME" && useradd -r -g "$USER_NAME" "$USER_NAME"
+RUN mkdir "$WORK_DIR" && chown "$OWNER" "$WORK_DIR"
+RUN echo "DEV_ENV=python" > "$WORK_DIR/.profile"
+
+COPY --chown="$OWNER" .ssh/authorized_keys "$WORK_DIR/.ssh/authorized_keys"
+
+RUN chsh -s /usr/bin/zsh "$USER_NAME"
+
+COPY --chown="$OWNER" .zshrc "$WORK_DIR/.zshrc"
+COPY --chown="$OWNER" .gitconfig "$WORK_DIR/.gitconfig"
