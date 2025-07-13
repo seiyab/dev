@@ -41,3 +41,13 @@ RUN (mkdir "$WORK_DIR/.temp" && \
     cp -r nvim-linux-arm64/* "$WORK_DIR/.local" && \
     rm -rf "$WORK_DIR/.temp")
 RUN ln -s "$WORK_DIR/.local/bin/nvim" "$WORK_DIR/.local/bin/vim"
+
+# Hoist this installation later
+USER root
+RUN apt-get update  \
+    && apt-get -y --no-install-recommends install  \
+        tmux \
+    && rm -rf /var/lib/apt/lists/*
+COPY --chown="$OWNER" ./.tmux.conf "$WORK_DIR/.tmux.conf"
+
+USER $USER_NAME
