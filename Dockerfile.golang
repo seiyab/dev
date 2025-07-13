@@ -15,7 +15,7 @@ RUN mkdir "$WORK_DIR" && chown "$USER_NAME:$USER_NAME" "$WORK_DIR"
 RUN echo "DEV_ENV=golang" > "$WORK_DIR/.profile" \
   && echo 'PATH=/usr/local/go/bin:$PATH' >> "$WORK_DIR/.profile" \
   && echo "export GOPATH=$WORK_DIR/projects/gopath" >> "$WORK_DIR/.profile" \
-  && echo "PATH=$PATH:$GOPATH/bin" >> "$WORK_DIR/.profile"
+  && echo 'PATH=$PATH:$GOPATH/bin' >> "$WORK_DIR/.profile"
 
 COPY --chown="$OWNER" .ssh/authorized_keys "$WORK_DIR/.ssh/authorized_keys"
 

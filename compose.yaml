@@ -10,6 +10,27 @@ x-references:
       privileged: true
 
 services:
+  mise:
+    build:
+      context: .
+      dockerfile: Dockerfile.mise
+    volumes:
+      - projects:/home/user/projects
+      - vss:/home/user/.vscode-server
+      - history:/home/user/.history
+      - mise:/home/user/mise
+      - ./nvim:/home/user/.config/nvim
+    ports:
+      - "8080:8080"
+    user: user
+    command: tail -f /dev/null
+    post_start:
+    - *chown
+    - command: |
+        chown -R user:user /home/user/mise && \
+        echo "done"
+      user: root
+      privileged: true
   ssh:
     build:
       context: .
@@ -31,18 +52,6 @@ services:
     - command: service ssh start
       user: root
       privileged: true
-  rust:
-    build:
-      context: .
-      dockerfile: Dockerfile.rust
-    volumes:
-      - projects-rust:/home/user/projects
-      - vss:/home/user/.vscode-server
-      - history-rust:/home/user/.history
-    user: user
-    command: tail -f /dev/null
-    post_start:
-    - *chown
   node:
     build:
       context: .
@@ -53,18 +62,6 @@ services:
       - history-node:/home/user/.history
     ports:
       - "8000:8000"
-    user: user
-    command: tail -f /dev/null
-    post_start:
-    - *chown
-  bun:
-    build:
-      context: .
-      dockerfile: Dockerfile.bun
-    volumes:
-      - projects-bun:/home/user/projects
-      - vss:/home/user/.vscode-server
-      - history-bun:/home/user/.history
     user: user
     command: tail -f /dev/null
     post_start:
@@ -83,14 +80,11 @@ services:
     command: tail -f /dev/null
     post_start:
     - *chown
-#  python:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile.python
-#    user: user
-#    command: tail -f /dev/null
 volumes:
   vss:
+  projects:
+  history:
+  mise:
   history-ssh:
   projects-node:
   history-node:
