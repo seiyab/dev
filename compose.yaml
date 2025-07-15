@@ -5,7 +5,8 @@ x-references:
         chown -R user:user /home/user/projects && \
         chown -R user:user /home/user/.history && \
         chown -R user:user /home/user/.vscode-server && \
-        echo "done"
+        false && \
+        echo "done" 
       user: root
       privileged: true
 
@@ -16,21 +17,28 @@ services:
       dockerfile: Dockerfile.mise
     volumes:
       - projects:/home/user/projects
-      - vss:/home/user/.vscode-server
       - history:/home/user/.history
       - mise:/home/user/mise
+      - lazy:/home/user/.local/share/nvim/lazy
       - ./nvim:/home/user/.config/nvim
+      - ${SSH_AUTH_SOCK}:/tmp/ssh-agent.sock
+      - ./scripts:/scripts
     ports:
       - "8080:8080"
     user: user
     command: tail -f /dev/null
     post_start:
-    - *chown
-    - command: |
-        chown -R user:user /home/user/mise && \
-        echo "done"
+    - command: /scripts/own-user.sh /home/user/projects /home/user/.history 
       user: root
       privileged: true
+    - command: /scripts/own-user.sh /home/user/mise /home/user/.local/share/nvim/lazy
+      user: root
+      privileged: true
+    - command: /scripts/own-user.sh /tmp/ssh-agent.sock
+      user: root
+      privileged: true
+    environment:
+      SSH_AUTH_SOCK: /tmp/ssh-agent.sock
   ssh:
     build:
       context: .
@@ -85,12 +93,9 @@ volumes:
   projects:
   history:
   mise:
+  lazy:
   history-ssh:
   projects-node:
   history-node:
-  projects-bun:
-  history-bun:
-  projects-rust:
-  history-rust:
   projects-golang:
   history-golang:
