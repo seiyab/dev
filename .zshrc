@@ -12,4 +12,6 @@ source ~/.profile
 setopt PROMPT_SUBST
 export PROMPT='[$DEV_ENV]%n@%2~ $(_git-branch)%# '
 
+eval "$(direnv hook zsh)"
+
 bindkey -v
