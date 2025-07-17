@@ -3,7 +3,7 @@ FROM debian:12-slim
 RUN apt-get update  \
     && apt-get -y --no-install-recommends install  \
         sudo curl git ca-certificates build-essential \
-        zsh openssh-client ripgrep direnv \
+        zsh openssh-client ripgrep direnv vim \
     && rm -rf /var/lib/apt/lists/*
 
 
