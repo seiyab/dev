@@ -40,7 +40,6 @@ RUN (mkdir "$WORK_DIR/.temp" && \
     tar -xf nvim-linux-arm64.tar.gz && \
     cp -r nvim-linux-arm64/* "$WORK_DIR/.local" && \
     rm -rf "$WORK_DIR/.temp")
-RUN ln -s "$WORK_DIR/.local/bin/nvim" "$WORK_DIR/.local/bin/vim"
 
 # Hoist this installation later
 USER root
