@@ -4,7 +4,7 @@ RUN apt-get update  \
     && apt-get -y --no-install-recommends install  \
         sudo curl git ca-certificates build-essential \
         zsh openssh-client ripgrep direnv vim tmux \
-        zip \
+        zip unzip \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -42,5 +42,7 @@ RUN (mkdir "$WORK_DIR/.temp" && \
     tar -xf nvim-linux-arm64.tar.gz && \
     cp -r nvim-linux-arm64/* "$WORK_DIR/.local" && \
     rm -rf "$WORK_DIR/.temp")
+
+WORKDIR $WORK_DIR
 
 USER $USER_NAME
