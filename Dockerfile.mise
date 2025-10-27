@@ -1,10 +1,10 @@
-FROM debian:12-slim
+FROM debian:13-slim
 
 RUN apt-get update  \
     && apt-get -y --no-install-recommends install  \
-        sudo curl git ca-certificates build-essential \
+        curl git ca-certificates build-essential \
         zsh openssh-client ripgrep direnv vim tmux \
-        zip unzip \
+        zip unzip lazygit \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -33,7 +33,7 @@ ENV MISE_CONFIG_DIR="$MISE_DIR"
 ENV MISE_CACHE_DIR="$MISE_DIR/cache"
 ENV MISE_INSTALL_PATH="$WORK_DIR/.local/bin/mise"
 ENV PATH="$MISE_DIR/shims:$PATH"
-RUN curl https://mise.run | MISE_VERSION=v2025.7.11 sh
+RUN curl https://mise.run | sh
 RUN echo 'eval "$(~/.local/bin/mise activate zsh)"' >> ~/.zshrc
 
 RUN (mkdir "$WORK_DIR/.temp" && \

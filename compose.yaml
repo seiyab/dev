@@ -21,10 +21,9 @@ services:
       - history:/home/user/.history
       - mise:/home/user/mise
       - lazy:/home/user/.local/share/nvim/lazy
-      - ${SSH_AUTH_SOCK}:/tmp/ssh-agent.sock
       - ./scripts:/scripts
     ports:
-      - "8080:8080"
+      - "8000-8010:8000-8010"
     user: user
     command: tail -f /dev/null
     post_start:
@@ -34,64 +33,23 @@ services:
     - command: /scripts/own-user.sh /home/user/mise /home/user/.local/share/nvim/lazy
       user: root
       privileged: true
+  git:
+    build:
+      context: .
+      dockerfile: Dockerfile.mise
+    volumes:
+      - projects:/home/user/projects
+      - ${SSH_AUTH_SOCK}:/tmp/ssh-agent.sock
+      - ./scripts:/scripts
+    user: user
+    command: tail -f /dev/null
+    post_start:
     - command: /scripts/own-user.sh /tmp/ssh-agent.sock
       user: root
       privileged: true
-    # - command: /scripts/clone-nv.sh
-    #   user: user
-    #   environment:
-    #   - SSH_AUTH_SOCK=/tmp/ssh-agent.sock
     environment:
       SSH_AUTH_SOCK: /tmp/ssh-agent.sock
-  ssh:
-    build:
-      context: .
-      dockerfile: Dockerfile.ssh
-    volumes:
-      - projects-golang:/home/user/projects/golang
-      - projects-node:/home/user/projects/node
-      - history-ssh:/home/user/.history
-    ports:
-      - "7022:22"
-    user: user
-    command: tail -f /dev/null
-    post_start:
-    - command: |
-        chown -R user:user /home/user/projects && \
-        echo "done"
-      user: root
-      privileged: true
-    - command: service ssh start
-      user: root
-      privileged: true
-  node:
-    build:
-      context: .
-      dockerfile: Dockerfile.node
-    volumes:
-      - projects-node:/home/user/projects
-      - vss:/home/user/.vscode-server
-      - history-node:/home/user/.history
-    ports:
-      - "8000:8000"
-    user: user
-    command: tail -f /dev/null
-    post_start:
-    - *chown
-  golang:
-    build:
-      context: .
-      dockerfile: Dockerfile.golang
-    volumes:
-      - projects-golang:/home/user/projects
-      - vss:/home/user/.vscode-server
-      - history-golang:/home/user/.history
-    ports:
-      - "7023:22"
-    user: user
-    command: tail -f /dev/null
-    post_start:
-    - *chown
+      DEV_ENV: git
 volumes:
   vss:
   projects:
@@ -99,8 +57,3 @@ volumes:
   mise:
   lazy:
   config:
-  history-ssh:
-  projects-node:
-  history-node:
-  projects-golang:
-  history-golang:
