@@ -4,7 +4,7 @@ RUN apt-get update  \
     && apt-get -y --no-install-recommends install  \
         curl git ca-certificates build-essential \
         zsh openssh-client ripgrep direnv vim tmux \
-        zip unzip lazygit \
+        zip unzip lazygit jq \
     && rm -rf /var/lib/apt/lists/*
 
 

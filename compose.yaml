@@ -47,6 +47,7 @@ services:
     - command: /scripts/own-user.sh /tmp/ssh-agent.sock
       user: root
       privileged: true
+    - command: /scripts/git-config.sh
     environment:
       SSH_AUTH_SOCK: /tmp/ssh-agent.sock
       DEV_ENV: git
