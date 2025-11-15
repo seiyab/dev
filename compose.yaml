@@ -4,8 +4,6 @@ x-references:
       command: |
         chown -R user:user /home/user/projects && \
         chown -R user:user /home/user/.history && \
-        chown -R user:user /home/user/.vscode-server && \
-        false && \
         echo "done" 
       user: root
       privileged: true
@@ -52,7 +50,6 @@ services:
       SSH_AUTH_SOCK: /tmp/ssh-agent.sock
       DEV_ENV: git
 volumes:
-  vss:
   projects:
   history:
   mise:
