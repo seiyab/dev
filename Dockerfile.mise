@@ -43,6 +43,13 @@ RUN (mkdir "$WORK_DIR/.temp" && \
     cp -r nvim-linux-arm64/* "$WORK_DIR/.local" && \
     rm -rf "$WORK_DIR/.temp")
 
+RUN (mkdir "$WORK_DIR/.temp" && \
+    cd "$WORK_DIR/.temp" && \
+    ~/.local/bin/mise use node && \
+    ~/.local/bin/mise use rust && \
+    curl -fsSL https://raw.githubusercontent.com/moonbitlang/moonbit-compiler/refs/heads/main/install.ts | ~/.local/bin/mise exec node -- node && \
+    rm -rf "$WORK_DIR/.temp")
+
 WORKDIR $WORK_DIR
 
 USER $USER_NAME

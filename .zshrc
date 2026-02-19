@@ -16,4 +16,6 @@ export LANG=C.utf8
 
 eval "$(direnv hook zsh)"
 
+PATH=$PATH:~/.moon/bin
+
 bindkey -v
