@@ -25,6 +25,8 @@ services:
       - "8000-8010:8000-8010"
     user: user
     command: tail -f /dev/null
+    security_opt:
+    - seccomp=unconfined
     post_start:
     - command: /scripts/own-user.sh /home/user/projects /home/user/.history /home/user/.config
       user: root

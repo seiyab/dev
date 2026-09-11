@@ -6,7 +6,7 @@ export HISTFILE=~/.history/.zsh_history
 source ~/.profile
 
 setopt PROMPT_SUBST
-export PROMPT='[$DEV_ENV]%n@%2~ $(git rev-parse --abbrev-ref HEAD)%# '
+export PROMPT='[$DEV_ENV]%n@%2~ $(git rev-parse --abbrev-ref HEAD 2> /dev/null)%# '
 
 export LANG=C.utf8
 
