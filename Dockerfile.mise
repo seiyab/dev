@@ -1,10 +1,11 @@
-FROM debian:13-slim
+FROM debian:stable
 
 RUN apt-get update  \
     && apt-get -y --no-install-recommends install  \
         curl git ca-certificates bubblewrap build-essential \
         zsh openssh-client ripgrep direnv vim tmux \
         zip unzip lazygit jq libclang-dev mold \
+	procps \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -43,12 +44,11 @@ RUN (mkdir "$WORK_DIR/.temp" && \
     cp -r nvim-linux-arm64/* "$WORK_DIR/.local" && \
     rm -rf "$WORK_DIR/.temp")
 
-# RUN (mkdir "$WORK_DIR/.temp" && \
-#    cd "$WORK_DIR/.temp" && \
-#    ~/.local/bin/mise use node && \
-#    ~/.local/bin/mise use rust && \
-#    curl -fsSL https://raw.githubusercontent.com/moonbitlang/moonbit-compiler/refs/heads/main/install.ts | ~/.local/bin/mise exec node -- node && \
-#    rm -rf "$WORK_DIR/.temp")
+USER root
+RUN curl -fsSL https://chatgpt.com/codex/install.sh | \
+    CODEX_NON_INTERACTIVE=true CODEX_INSTALL_DIR=/home/$USER_NAME/.local/bin CODEX_HOME=/tmp sh
+
+USER $USER_NAME
 
 WORKDIR $WORK_DIR
 
