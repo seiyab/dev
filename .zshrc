@@ -10,8 +10,6 @@ export PROMPT='[$DEV_ENV]%n@%2~ $(git rev-parse --abbrev-ref HEAD 2> /dev/null)%
 
 export LANG=C.utf8
 
-eval "$(direnv hook zsh)"
-
 PATH=$PATH:~/.moon/bin
 
 bindkey -v
