@@ -19,6 +19,7 @@ services:
       - history:/home/user/.history
       - mise:/home/user/mise
       - lazy:/home/user/.local/share/nvim/lazy
+      - codex:/home/user/.codex
       - ./scripts:/scripts
       - ./share:/home/user/share
     ports:
@@ -28,7 +29,7 @@ services:
     security_opt:
     - seccomp=unconfined
     post_start:
-    - command: /scripts/own-user.sh /home/user/projects /home/user/.history /home/user/.config
+    - command: /scripts/own-user.sh /home/user/projects /home/user/.history /home/user/.config /home/user/.codex
       user: root
       privileged: true
     - command: /scripts/own-user.sh /home/user/mise /home/user/.local/share/nvim/lazy
@@ -58,3 +59,4 @@ volumes:
   mise:
   lazy:
   config:
+  codex:
