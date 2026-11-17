@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
     .getByLabel("Access key")
     .fill(readFileSync(join(dir, "access-key"), "utf8").trim());
   await page.getByRole("button", { name: "Open terminal" }).click();
-  await expect(page.locator(".pane").getByRole("status")).toHaveText(
+  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
     "Connected",
   );
 });
@@ -50,7 +50,7 @@ test.afterEach(async ({ page }) => {
   expect(errors).toEqual([]);
 });
 async function command(page: Page, text: string) {
-  await page.locator(".active-pane .xterm-helper-textarea").focus();
+  await page.locator("[data-active='true'] .xterm-helper-textarea").focus();
   await page.keyboard.type(text);
   await page.keyboard.press("Enter");
 }
@@ -76,17 +76,17 @@ test("sign in, type, resize, reload, and detach a persistent shell", async ({
   await command(page, "stty size");
   await expect(page.locator(".xterm-rows")).toContainText(/\d+ \d+/);
   await page.reload();
-  await expect(page.locator(".pane").getByRole("status")).toHaveText(
+  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
     "Connected",
   );
   await command(page, "printf 'RELOAD_%s\\n' \"$WB_BROWSER\"");
   await expect(page.locator(".xterm-rows")).toContainText("RELOAD_preserved");
   await page.getByRole("button", { name: "Disconnect", exact: true }).click();
-  await expect(page.locator(".pane").getByRole("status")).toContainText(
-    "shell is still running",
-  );
+  await expect(
+    page.locator("[data-pane-id]").getByRole("status"),
+  ).toContainText("shell is still running");
   await page.getByRole("button", { name: "Reconnect", exact: true }).click();
-  await expect(page.locator(".pane").getByRole("status")).toHaveText(
+  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
     "Connected",
   );
   await page.screenshot({ path: testInfo.outputPath("terminal.png") });
@@ -96,21 +96,21 @@ test("keyboard splits preserve independent shells, focus, resize, zoom, and save
   page,
 }, testInfo) => {
   const firstId = await page
-    .locator(".active-pane")
+    .locator("[data-active='true']")
     .getAttribute("data-pane-id");
   const first = page.locator(`[data-pane-id="${firstId}"]`);
   await command(page, "export WB_PANE=first");
   await prefix(page, "%");
-  await expect(page.locator(".pane")).toHaveCount(2);
-  await expect(page.locator(".active-pane").getByRole("status")).toHaveText(
-    "Connected",
-  );
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await expect(
+    page.locator("[data-active='true']").getByRole("status"),
+  ).toHaveText("Connected");
   const secondId = await page
-    .locator(".active-pane")
+    .locator("[data-active='true']")
     .getAttribute("data-pane-id");
   await command(page, "export WB_PANE=second");
   await prefix(page, "h");
-  await expect(first).toHaveClass(/active-pane/);
+  await expect(first).toHaveAttribute("data-active", "true");
   await expect(first.locator("textarea")).toBeFocused();
   await command(page, "printf 'PANE_%s\\n' \"$WB_PANE\"");
   await expect(first.locator(".xterm-rows")).toContainText("PANE_first");
@@ -129,48 +129,48 @@ test("keyboard splits preserve independent shells, focus, resize, zoom, and save
     .toBeGreaterThan(wider);
   await page.keyboard.press("Escape");
   await prefix(page, "l");
-  await expect(page.locator(".active-pane")).toHaveAttribute(
+  await expect(page.locator("[data-active='true']")).toHaveAttribute(
     "data-pane-id",
     secondId!,
   );
   await prefix(page, '"');
-  await expect(page.locator(".pane")).toHaveCount(3);
-  await expect(page.locator(".active-pane").getByRole("status")).toHaveText(
-    "Connected",
-  );
+  await expect(page.locator("[data-pane-id]")).toHaveCount(3);
+  await expect(
+    page.locator("[data-active='true']").getByRole("status"),
+  ).toHaveText("Connected");
   await prefix(page, "k");
-  await expect(page.locator(".active-pane")).toHaveAttribute(
+  await expect(page.locator("[data-active='true']")).toHaveAttribute(
     "data-pane-id",
     secondId!,
   );
   await command(page, "printf 'PANE_%s\\n' \"$WB_PANE\"");
-  await expect(page.locator(".active-pane .xterm-rows")).toContainText(
+  await expect(page.locator("[data-active='true'] .xterm-rows")).toContainText(
     "PANE_second",
   );
   await prefix(page, "z");
-  await expect(page.locator(".pane:visible")).toHaveCount(1);
-  await expect(page.locator(".active-pane").getByRole("status")).toHaveText(
-    "Connected",
-  );
+  await expect(page.locator("[data-pane-id]:visible")).toHaveCount(1);
+  await expect(
+    page.locator("[data-active='true']").getByRole("status"),
+  ).toHaveText("Connected");
   await prefix(page, "z");
-  await expect(page.locator(".pane:visible")).toHaveCount(3);
+  await expect(page.locator("[data-pane-id]:visible")).toHaveCount(3);
   await saved(page);
   const ids = await page
-    .locator(".pane")
+    .locator("[data-pane-id]")
     .evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-pane-id")));
   await page.reload();
-  await expect(page.locator(".pane")).toHaveCount(3);
-  await expect(page.locator(".pane footer [role=status]")).toHaveText([
+  await expect(page.locator("[data-pane-id]")).toHaveCount(3);
+  await expect(page.locator("[data-pane-id] footer [role=status]")).toHaveText([
     "Connected",
     "Connected",
     "Connected",
   ]);
   expect(
     await page
-      .locator(".pane")
+      .locator("[data-pane-id]")
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-pane-id"))),
   ).toEqual(ids);
-  await expect(page.locator(".active-pane")).toHaveAttribute(
+  await expect(page.locator("[data-active='true']")).toHaveAttribute(
     "data-pane-id",
     secondId!,
   );
@@ -183,7 +183,9 @@ test("keyboard splits preserve independent shells, focus, resize, zoom, and save
     "Unknown workbench command",
   );
   await prefix(page, "Control+g");
-  await expect(page.locator(".active-pane .xterm-rows")).toContainText("KEY_7");
+  await expect(page.locator("[data-active='true'] .xterm-rows")).toContainText(
+    "KEY_7",
+  );
 });
 
 test("closing and reopening panes preserves their terminals, including closing the last pane", async ({
@@ -191,13 +193,13 @@ test("closing and reopening panes preserves their terminals, including closing t
 }) => {
   await command(page, "export WB_DETACHED=alive");
   await prefix(page, "x");
-  await expect(page.locator(".pane")).toHaveCount(0);
+  await expect(page.locator("[data-pane-id]")).toHaveCount(0);
   await saved(page);
   await prefix(page, "d");
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("dialog").getByRole("textbox").press("Tab");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".pane").getByRole("status")).toHaveText(
+  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
     "Connected",
   );
   await command(page, "printf 'DETACHED_%s\\n' \"$WB_DETACHED\"");
@@ -206,39 +208,41 @@ test("closing and reopening panes preserves their terminals, including closing t
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator(".active-pane textarea")).toBeFocused();
+  await expect(page.locator("[data-active='true'] textarea")).toBeFocused();
 });
 
 test("nvim keeps an unsaved buffer across splits and browser reload", async ({
   page,
 }) => {
   await command(page, "nvim --clean -n");
-  await expect(page.locator(".active-pane .xterm-rows")).toContainText("NVIM");
+  await expect(page.locator("[data-active='true'] .xterm-rows")).toContainText(
+    "NVIM",
+  );
   await page.keyboard.press("i");
   await page.keyboard.type("workbench-unsaved-buffer");
   await page.keyboard.press("Escape");
   await prefix(page, "%");
-  await expect(page.locator(".pane")).toHaveCount(2);
-  await expect(page.locator(".active-pane").getByRole("status")).toHaveText(
-    "Connected",
-  );
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await expect(
+    page.locator("[data-active='true']").getByRole("status"),
+  ).toHaveText("Connected");
   await prefix(page, "h");
-  await expect(page.locator(".active-pane .xterm-rows")).toContainText(
+  await expect(page.locator("[data-active='true'] .xterm-rows")).toContainText(
     "workbench-unsaved-buffer",
   );
   await saved(page);
   await page.reload();
-  await expect(page.locator(".active-pane").getByRole("status")).toHaveText(
-    "Connected",
-  );
-  await expect(page.locator(".active-pane .xterm-rows")).toContainText(
+  await expect(
+    page.locator("[data-active='true']").getByRole("status"),
+  ).toHaveText("Connected");
+  await expect(page.locator("[data-active='true'] .xterm-rows")).toContainText(
     "workbench-unsaved-buffer",
   );
   await page.keyboard.type(":q!");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".active-pane .xterm-rows")).not.toContainText(
-    "workbench-unsaved-buffer",
-  );
+  await expect(
+    page.locator("[data-active='true'] .xterm-rows"),
+  ).not.toContainText("workbench-unsaved-buffer");
 });
 
 test("a layout conflict preserves the saved layout and keeps local focus accurate", async ({
@@ -253,13 +257,13 @@ test("a layout conflict preserves the saved layout and keeps local focus accurat
   });
   expect(external.status()).toBe(200);
   await prefix(page, "%");
-  await expect(page.locator(".pane")).toHaveCount(2);
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
   await expect(page.locator("[data-layout-status]")).toContainText(
     "Layout not saved",
   );
   const first = page.locator('[data-pane-id="terminal"]');
   await first.locator("textarea").focus();
-  await expect(first).toHaveClass(/active-pane/);
+  await expect(first).toHaveAttribute("data-active", "true");
   await page.keyboard.type("printf 'FOCUS_%s\\n' correct");
   await page.keyboard.press("Enter");
   await expect(first.locator(".xterm-rows")).toContainText("FOCUS_correct");

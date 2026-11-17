@@ -1,0 +1,82 @@
+.main {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #2a3541;
+  background: #151c24;
+}
+.brand {
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.badge,
+.eyebrow {
+  color: #80d5b0;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.badge {
+  border: 1px solid #335a4d;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.subtitle {
+  color: #9aabba;
+  font-size: 12px;
+}
+.login {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  padding: 24px;
+}
+.form {
+  max-width: 430px;
+  width: 100%;
+}
+.heading {
+  font-size: 30px;
+  font-weight: 550;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+.description {
+  color: #9aabba;
+  line-height: 1.6;
+}
+.eyebrow,
+.error {
+  line-height: 1.6;
+}
+.form label {
+  display: block;
+  margin: 28px 0 8px;
+  font-size: 13px;
+}
+.submit {
+  margin-top: 16px;
+  width: 100%;
+  background: #285645;
+  border-color: #41775f;
+}
+.submit:hover {
+  background: #304555;
+}
+@media (max-width: 500px) {
+  .subtitle {
+    display: none;
+  }
+  .header {
+    padding: 14px 16px;
+  }
+}

@@ -1,3 +1,4 @@
+import styles from "./workbench.module.css";
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   MAX_PANES,
@@ -50,6 +51,7 @@ function Picker({
   }, []);
   return (
     <dialog
+      class={styles.dialog}
       ref={dialog}
       onCancel={(e) => {
         e.preventDefault();
@@ -57,7 +59,7 @@ function Picker({
       }}
       aria-labelledby="picker-title"
     >
-      <div class="dialog-heading">
+      <div class={styles.dialogHeading}>
         <h2 id="picker-title">
           {kind === "commands" ? "Workbench commands" : "Detached terminals"}
         </h2>
@@ -71,7 +73,7 @@ function Picker({
         value={query}
         onInput={(e) => setQuery(e.currentTarget.value)}
       />
-      <div class="picker-items">
+      <div class={styles.pickerItems}>
         {notice && <p role="alert">{notice}</p>}
         {kind === "commands"
           ? commands
@@ -80,7 +82,7 @@ function Picker({
               )
               .map((command) => (
                 <button
-                  class="command-item"
+                  class={styles.commandItem}
                   onClick={() => {
                     close();
                     command.run();
@@ -96,13 +98,13 @@ function Picker({
                 t.title.toLowerCase().includes(query.toLowerCase()),
               )
               .map((terminal) => (
-                <div class="detached-item" key={terminal.id}>
+                <div class={styles.detachedItem} key={terminal.id}>
                   <button
-                    class="command-item"
+                    class={styles.commandItem}
                     onClick={() => reopen(terminal.id)}
                   >
                     <span>Reopen {terminal.title}</span>
-                    <span class="muted">{terminal.id.slice(0, 8)}</span>
+                    <span class={styles.muted}>{terminal.id.slice(0, 8)}</span>
                   </button>
                   <button
                     onClick={() => terminate(terminal.id)}
@@ -454,11 +456,11 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
   }
   return (
     <>
-      <div class="workbench-toolbar">
+      <div class={styles.toolbar}>
         <span>
-          Workspace <span class="muted">/ implementation</span>
+          Workspace <span class={styles.muted}>/ implementation</span>
         </span>
-        <div class="toolbar-actions">
+        <div class={styles.toolbarActions}>
           <button
             onClick={() => commands.find((c) => c.id === "split-x")?.run()}
           >
@@ -481,7 +483,7 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
           </button>
         </div>
       </div>
-      <div class="pane-canvas">
+      <div class={styles.canvas}>
         {positions
           .filter((p) => p.node.type === "terminal")
           .map(({ node, rect }) => {
@@ -491,7 +493,8 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
                 key={node.id}
                 data-pane-id={node.id}
                 aria-label={resources.find((t) => t.id === node.id)?.title}
-                class={`pane ${layout?.activeId === node.id ? "active-pane" : ""}`}
+                data-active={layout?.activeId === node.id}
+                class={`${styles.pane} ${layout?.activeId === node.id ? styles.activePane : ""}`}
                 style={{
                   ...paneStyle(
                     layout?.zoomedId === node.id
@@ -519,10 +522,10 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
             );
           })}
         {!layout ? (
-          <p class="empty-workspace">Loading workspace… {notice}</p>
+          <p class={styles.empty}>Loading workspace… {notice}</p>
         ) : (
           !layout.root && (
-            <div class="empty-workspace">
+            <div class={styles.empty}>
               <h2>Your terminals are still here.</h2>
               <p>Reopen a detached terminal or start a new one.</p>
               <button onClick={() => openPicker("terminals")}>
@@ -540,7 +543,7 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
         )}
       </div>
       <div
-        class="workbench-status"
+        class={styles.status}
         data-layout-status
         role="status"
         aria-live="polite"

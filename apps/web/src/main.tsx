@@ -1,7 +1,7 @@
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { Workbench } from "./workbench.js";
-import "@xterm/xterm/css/xterm.css";
+import styles from "./main.module.css";
 import "./style.css";
 
 function App() {
@@ -40,25 +40,25 @@ function App() {
     }
   }
   return (
-    <main>
-      <header>
-        <div class="brand">
-          Workbench<span class="badge">LOCAL</span>
+    <main class={styles.main}>
+      <header class={styles.header}>
+        <div class={styles.brand}>
+          Workbench<span class={styles.badge}>LOCAL</span>
         </div>
-        <span class="subtitle">Development terminal</span>
+        <span class={styles.subtitle}>Development terminal</span>
       </header>
       {authenticated === null ? (
-        <section class="login">
+        <section class={styles.login}>
           <p>Connecting to your workspace…</p>
         </section>
       ) : authenticated ? (
         <Workbench onAuthRequired={() => setAuthenticated(false)} />
       ) : (
-        <section class="login">
-          <form onSubmit={login}>
-            <p class="eyebrow">YOUR WORKSPACE</p>
-            <h1>Pick up where you left off.</h1>
-            <p>
+        <section class={styles.login}>
+          <form class={styles.form} onSubmit={login}>
+            <p class={styles.eyebrow}>YOUR WORKSPACE</p>
+            <h1 class={styles.heading}>Pick up where you left off.</h1>
+            <p class={styles.description}>
               Enter the access key from your local bridge to open the terminal.
             </p>
             <label for="access-key">Access key</label>
@@ -70,10 +70,14 @@ function App() {
               value={key}
               onInput={(event) => setKey(event.currentTarget.value)}
             />
-            <button disabled={busy}>
+            <button class={styles.submit} disabled={busy}>
               {busy ? "Connecting…" : "Open terminal"}
             </button>
-            {error && <p role="alert">{error}</p>}
+            {error && (
+              <p class={styles.error} role="alert">
+                {error}
+              </p>
+            )}
           </form>
         </section>
       )}

@@ -1,0 +1,60 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  min-height: 41px;
+  gap: 8px;
+  border-bottom: 1px solid #26313c;
+  font-size: 13px;
+  background: var(--pane-header-background, transparent);
+}
+.bar > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.actions button {
+  font-size: 12px;
+  padding: 5px 8px;
+}
+.host {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 6px;
+}
+.host :global(.xterm) {
+  height: 100%;
+}
+.footer {
+  padding: 6px 10px;
+  font-size: 11px;
+  min-height: 28px;
+  border-top: 1px solid #26313c;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #9aabba;
+}
+.indicator {
+  width: 6px;
+  height: 6px;
+  background: #e5b76d;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.online {
+  background: #80d5b0;
+}

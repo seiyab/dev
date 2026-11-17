@@ -1,3 +1,5 @@
+import styles from "./terminal-pane.module.css";
+import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -190,10 +192,10 @@ export function TerminalPane({
   }, [id, attempt]);
 
   return (
-    <div class="terminal-content" onPointerDown={onFocus} onFocusIn={onFocus}>
-      <div class="terminal-bar">
+    <div class={styles.content} onPointerDown={onFocus} onFocusIn={onFocus}>
+      <div class={styles.bar}>
         <span id={`title-${id}`}>{title}</span>
-        <div class="pane-actions">
+        <div class={styles.actions}>
           <button
             onClick={() => {
               if (ended) {
@@ -227,13 +229,13 @@ export function TerminalPane({
         </div>
       </div>
       <div
-        class="terminal-host"
+        class={styles.host}
         ref={host}
         role="region"
         aria-labelledby={`title-${id}`}
       />
-      <footer>
-        <span class={connected ? "indicator online" : "indicator"} />
+      <footer class={styles.footer}>
+        <span class={`${styles.indicator} ${connected ? styles.online : ""}`} />
         <span role="status">{status}</span>
       </footer>
     </div>
