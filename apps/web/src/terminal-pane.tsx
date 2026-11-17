@@ -7,7 +7,21 @@ import {
 } from "./use-terminal-connection.js";
 
 export type { TerminalHandle } from "./use-terminal-connection.js";
-export function TerminalPane({
+interface TerminalPaneProps {
+  id: string;
+  title: string;
+  active: boolean;
+  onFocus: () => void;
+  onClose: () => void;
+  onAuthRequired: () => void;
+  register: (handle: TerminalHandle | null) => void;
+}
+
+export function TerminalPane(props: TerminalPaneProps) {
+  return <TerminalPaneInstance key={props.id} {...props} />;
+}
+
+function TerminalPaneInstance({
   id,
   title,
   active,
@@ -15,15 +29,7 @@ export function TerminalPane({
   onClose,
   onAuthRequired,
   register,
-}: {
-  id: string;
-  title: string;
-  active: boolean;
-  onFocus: () => void;
-  onClose: () => void;
-  onAuthRequired: () => void;
-  register: (id: string, handle: TerminalHandle | null) => void;
-}) {
+}: TerminalPaneProps) {
   const {
     host,
     status,
@@ -35,9 +41,9 @@ export function TerminalPane({
     recreate,
   } = useTerminalConnection({ id, active, onAuthRequired });
   useEffect(() => {
-    register(id, handle);
-    return () => register(id, null);
-  }, [id, handle, register]);
+    register(handle);
+    return () => register(null);
+  }, [handle, register]);
 
   return (
     <div class={styles.content} onPointerDown={onFocus} onFocusIn={onFocus}>

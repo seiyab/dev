@@ -503,9 +503,9 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
                   onFocus={() => focus(node.id)}
                   onClose={() => closePane(node.id)}
                   onAuthRequired={onAuthRequired}
-                  register={(id, handle) => {
-                    if (handle) handles.current.set(id, handle);
-                    else handles.current.delete(id);
+                  register={(handle) => {
+                    if (handle) handles.current.set(node.id, handle);
+                    else handles.current.delete(node.id);
                   }}
                 />
               </section>
