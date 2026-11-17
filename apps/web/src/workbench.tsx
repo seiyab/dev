@@ -462,16 +462,6 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
         </span>
         <div class={styles.toolbarActions}>
           <button
-            onClick={() => commands.find((c) => c.id === "split-x")?.run()}
-          >
-            Split ↔
-          </button>
-          <button
-            onClick={() => commands.find((c) => c.id === "split-y")?.run()}
-          >
-            Split ↕
-          </button>
-          <button
             onClick={() => commands.find((c) => c.id === "terminals")?.run()}
           >
             Detached terminals
