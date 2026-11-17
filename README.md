@@ -1,7 +1,7 @@
 # Development workbench
 
-A local, keyboard-first development workbench. The first slice provides one
-browser terminal backed by node-pty and tmux inside a development container.
+A local, keyboard-first development workbench with tiled browser terminals
+backed by node-pty and independent tmux sessions inside a development container.
 See [DESIGN.md](DESIGN.md) for the agreed architecture and later milestones.
 
 ## Run with Docker Desktop
@@ -16,12 +16,57 @@ the bridge checks Host and Origin. The key is generated on first startup and kep
 in a named volume; it is never printed in application logs. Anyone with the key
 can obtain a terminal in this workspace. Do not share it or place it in a URL.
 
-Reloading or closing the browser preserves the running shell through tmux.
-Disconnect detaches without ending it. A second browser connection is refused
-while the terminal is controlled; disconnect the first before reconnecting in
-the second. Typing `exit` ends the shell; Reconnect starts a new shell. A container
-restart also ends running processes. Browser authentication expires after twelve
-hours and is reset when the bridge restarts.
+Reloading or closing the browser preserves the layout and running shells through
+tmux. Disconnect detaches without ending a shell. A second browser connection to
+the same terminal is refused while it is controlled; disconnect the first before
+reconnecting in the second. Typing `exit` ends the shell; use **Recreate** to start
+a new one. Container restart also ends running processes; saved panes remain and
+offer explicit recreation. Browser authentication expires after twelve hours and
+is reset when the bridge restarts.
+
+## Panes and keyboard controls
+
+The current workbench has one work session and one tab. Click a pane to focus it;
+its green border indicates where ordinary keyboard input goes. Splits create
+new terminals in the workspace directory. Each terminal has its own shell and
+tmux session. Splitting, resizing, and zooming preserve existing terminal views
+and processes.
+
+Press **Ctrl-g**, release it, then press a command key:
+
+| Key                   | Action                                           |
+| --------------------- | ------------------------------------------------ |
+| `%`                   | Split left/right                                 |
+| `"`                   | Split top/bottom                                 |
+| `h` / `j` / `k` / `l` | Focus left/down/up/right without wrapping        |
+| `H` / `J` / `K` / `L` | Move a split boundary, entering resize mode      |
+| `z`                   | Zoom the active pane or restore the layout       |
+| `x`                   | Close the pane and keep its terminal             |
+| `d`                   | Open the detached-terminal picker                |
+| `p` / `?`             | Open the command palette and binding help        |
+| `Ctrl-g`              | Send a literal Ctrl-g to the focused application |
+| `Escape`              | Cancel the pending command or leave resize mode  |
+
+In resize mode, repeat `h/j/k/l` until Escape. Resize acts on the closest enclosing
+split of the requested orientation, moving its boundary in five-percent steps.
+The prefix prompt shows available bindings; invalid commands are swallowed with
+visible feedback. IME composition and browser/OS shortcuts are left alone in
+normal typing mode. Losing browser focus clears the pending prefix/resize mode.
+Toolbar buttons and the command palette invoke the same actions as shortcuts.
+
+Closing a pane never kills its terminal. Reopen it from **Detached terminals**,
+even after closing the last pane or reloading the browser. The picker also offers
+**Terminate**, which ends a detached terminal and removes its resource. Use
+Disconnect to release control without removing a pane. Hidden panes stay
+connected while another is zoomed.
+
+Layout, focus, zoom, split ratios, and terminal identities are stored in versioned
+`workspace.json` in the state volume. Wait for **Layout saved** before closing the
+browser immediately after changing the layout. Writes use atomic replacement and
+revision checks: concurrent layout edits are rejected with a reload message.
+There is a limit of 16 visible panes and 64 terminal resources; terminate unused
+detached terminals to free resources. The original prototype's terminal is reused
+when workspace metadata is first created.
 
 ```sh
 docker compose -f compose.workbench.yaml down
@@ -76,10 +121,13 @@ pnpm test:browser
 ```
 
 Backend integration tests create temporary tmux servers and exercise real PTYs,
-authentication, upgrade rejection, resize, reconnect, and high-output flow
-control. Browser tests use the production frontend and verify sign-in, terminal
-input, viewport resizing, and reload persistence.
+authentication, upgrade rejection, independent terminals, layout validation and
+revision conflicts, bridge restart, explicit recreation, resize, reconnect, and
+high-output flow control. Browser tests use the production frontend and verify
+keyboard splits, focus, resizing, zoom, prefix passthrough, reload persistence,
+detached terminals, and an unsaved nvim buffer. Browser tests require nvim.
 
-Split panes, prefix bindings, saved layouts, multiple workspaces, controller
-takeover, PWA installation, and scoped GitHub publishing are later increments.
+Multiple tabs and work sessions, mouse-drag resizing, configurable bindings,
+controller takeover, PWA installation, and scoped GitHub publishing are later
+increments.
 The existing container and Git scripts remain unchanged.

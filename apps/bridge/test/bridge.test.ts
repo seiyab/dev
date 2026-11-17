@@ -24,7 +24,7 @@ async function fixture() {
   const dir = mkdtempSync(join(tmpdir(), "workbench-test-"));
   const origin = `http://127.0.0.1:${port}`;
   const tmuxSocket = `wb-test-${port}`;
-  const bridge = startBridge({
+  const config = {
     hostname: "127.0.0.1",
     port,
     origin,
@@ -33,7 +33,8 @@ async function fixture() {
     webRoot: dir,
     shell: "/bin/bash",
     tmuxSocket,
-  });
+  };
+  let bridge = startBridge(config);
   await once(bridge.server, "listening");
   const key = readFileSync(join(dir, "access-key"), "utf8").trim();
   const login = await fetch(`${origin}/api/login`, {
@@ -48,6 +49,28 @@ async function fixture() {
     cookie,
     key,
     dir,
+    restart: async () => {
+      await bridge.close();
+      bridge = startBridge(config);
+      await once(bridge.server, "listening");
+      // Use a fresh connection after restart instead of fetch's old keep-alive pool.
+      return new Promise<string>((done, reject) => {
+        const req = request(
+          `${origin}/api/login`,
+          {
+            method: "POST",
+            agent: false,
+            headers: { Origin: origin, "Content-Type": "application/json" },
+          },
+          (response) => {
+            response.resume();
+            done(response.headers["set-cookie"]![0].split(";")[0]);
+          },
+        );
+        req.on("error", reject);
+        req.end(JSON.stringify({ key }));
+      });
+    },
     url: origin.replace("http:", "ws:") + "/api/terminal?v=1",
     close: async () => {
       await bridge.close();
@@ -89,8 +112,9 @@ async function denied(
 async function attach(
   f: Awaited<ReturnType<typeof fixture>>,
   acknowledge = true,
+  id = "terminal",
 ) {
-  const socket = new WebSocket(f.url, {
+  const socket = new WebSocket(`${f.url}&id=${id}`, {
     origin: f.origin,
     headers: { Cookie: f.cookie },
   });
@@ -282,3 +306,162 @@ test("protocol rejects malformed and oversized messages", () => {
   ])
     assert.equal(parseClientMessage(raw), null);
 });
+
+test(
+  "multiple terminals, validated layouts, revision conflicts and bridge restarts",
+  { timeout: 15000 },
+  async () => {
+    const f = await fixture();
+    const api = (path: string, method = "GET", body?: unknown) =>
+      fetch(`${f.origin}/api/${path}`, {
+        method,
+        headers: {
+          Cookie: f.cookie,
+          Origin: f.origin,
+          "Content-Type": "application/json",
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    try {
+      const created = await api("terminals", "POST");
+      assert.equal(created.status, 201);
+      const second = await created.json();
+      const a = await attach(f);
+      const b = await attach(f, true, second.id);
+      a.send({
+        type: "input",
+        data: "export ISOLATED=alpha; printf 'READY_%s\\n' alpha\r",
+      });
+      b.send({
+        type: "input",
+        data: "export ISOLATED=beta; printf 'READY_%s\\n' beta\r",
+      });
+      await a.waitFor(() => a.output().includes("READY_alpha"));
+      await b.waitFor(() => b.output().includes("READY_beta"));
+      assert.equal(
+        await denied(`${f.url}&id=${second.id}`, f.origin, f.cookie),
+        409,
+      );
+      assert.equal(
+        await denied(`${f.url}&id=unregistered`, f.origin, f.cookie),
+        404,
+      );
+      const initial = await (await api("workspace")).json();
+      const layout = {
+        root: {
+          type: "split",
+          id: "split-one",
+          axis: "x",
+          ratio: 0.6,
+          first: { type: "terminal", id: "terminal" },
+          second: { type: "terminal", id: second.id },
+        },
+        activeId: second.id,
+        zoomedId: null,
+      };
+      assert.equal(
+        (await api("layout", "PUT", { revision: initial.revision, layout }))
+          .status,
+        200,
+      );
+      assert.equal(
+        (await api("layout", "PUT", { revision: initial.revision, layout }))
+          .status,
+        409,
+      );
+      const current = await (await api("workspace")).json();
+      const duplicate = {
+        ...layout,
+        root: { ...layout.root, second: { type: "terminal", id: "terminal" } },
+      };
+      assert.equal(
+        (
+          await api("layout", "PUT", {
+            revision: current.revision,
+            layout: duplicate,
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await api("layout", "PUT", {
+            revision: current.revision,
+            layout: { ...layout, root: { ...layout.root, ratio: 0.99 } },
+          })
+        ).status,
+        400,
+      );
+      await a.detach();
+      await b.detach();
+      assert.equal((await api(`terminals/${second.id}`, "DELETE")).status, 409);
+      f.cookie = await f.restart();
+      const restored = await (await api("workspace")).json();
+      assert.deepEqual(restored.layout, layout);
+      assert.equal(restored.revision, current.revision);
+      const againA = await attach(f);
+      const againB = await attach(f, true, second.id);
+      againA.send({
+        type: "input",
+        data: "printf 'RESTORED_%s\\n' \"$ISOLATED\"\r",
+      });
+      againB.send({
+        type: "input",
+        data: "printf 'RESTORED_%s\\n' \"$ISOLATED\"\r",
+      });
+      await againA.waitFor(() => againA.output().includes("RESTORED_alpha"));
+      await againB.waitFor(() => againB.output().includes("RESTORED_beta"));
+      await againA.detach();
+      await againB.detach();
+      const closed = { root: null, activeId: null, zoomedId: null };
+      assert.equal(
+        (
+          await api("layout", "PUT", {
+            revision: restored.revision,
+            layout: closed,
+          })
+        ).status,
+        200,
+      );
+      assert.equal((await api(`terminals/${second.id}`, "DELETE")).status, 200);
+      assert.equal(
+        await denied(`${f.url}&id=${second.id}`, f.origin, f.cookie),
+        404,
+      );
+    } finally {
+      await f.close();
+    }
+  },
+);
+
+test(
+  "ended terminals require explicit recreation",
+  { timeout: 15000 },
+  async () => {
+    const f = await fixture();
+    try {
+      const terminal = await attach(f);
+      await terminal.waitFor(
+        () =>
+          terminal.output().includes("$ ") || terminal.output().includes("# "),
+      );
+      terminal.send({ type: "input", data: "exit\r" });
+      await once(terminal.socket, "close");
+      assert.equal(await denied(f.url, f.origin, f.cookie), 410);
+      const recreate = await fetch(
+        `${f.origin}/api/terminals/terminal/recreate`,
+        { method: "POST", headers: { Cookie: f.cookie, Origin: f.origin } },
+      );
+      assert.equal(recreate.status, 200);
+      const restarted = await attach(f);
+      await restarted.waitFor(
+        () =>
+          restarted.output().includes("$ ") ||
+          restarted.output().includes("# "),
+      );
+      await restarted.detach();
+    } finally {
+      await f.close();
+    }
+  },
+);

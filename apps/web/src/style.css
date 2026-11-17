@@ -55,6 +55,136 @@ footer {
   border-bottom: 1px solid #26313c;
   font-size: 13px;
 }
+.workbench-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid #2a3541;
+}
+.toolbar-actions,
+.pane-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.toolbar-actions button,
+.pane-actions button {
+  font-size: 12px;
+  padding: 5px 8px;
+}
+.muted {
+  color: #9aabba;
+}
+.pane-canvas {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  margin: 5px;
+}
+.pane {
+  position: absolute;
+  overflow: hidden;
+  border: 1px solid #354452;
+  border-radius: 4px;
+}
+.active-pane {
+  border-color: #80d5b0;
+  box-shadow: 0 0 0 1px #80d5b044;
+}
+.active-pane .terminal-bar {
+  background: #1a302b;
+}
+.terminal-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.pane .terminal-bar {
+  padding: 7px 10px;
+  min-height: 41px;
+  gap: 8px;
+}
+.pane .terminal-bar > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pane .terminal-host {
+  padding: 6px;
+}
+.pane footer {
+  padding: 6px 10px;
+  font-size: 11px;
+  min-height: 28px;
+}
+.workbench-status {
+  padding: 9px 16px;
+  background: #151c24;
+  border-top: 1px solid #2a3541;
+  color: #adc0cd;
+  font-size: 12px;
+  min-height: 35px;
+}
+.empty-workspace {
+  margin: 40px auto;
+  max-width: 520px;
+  text-align: center;
+  padding: 16px;
+}
+kbd {
+  font:
+    11px ui-monospace,
+    monospace;
+  color: #80d5b0;
+  padding: 2px 4px;
+}
+dialog {
+  background: #151c24;
+  color: #dce6ef;
+  border: 1px solid #526475;
+  border-radius: 8px;
+  width: min(640px, 90vw);
+  padding: 20px;
+}
+dialog::backdrop {
+  background: #04090dcc;
+}
+.dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.dialog-heading h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 550;
+}
+.picker-items {
+  max-height: 55vh;
+  overflow: auto;
+  margin-top: 12px;
+}
+.command-item {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  border: 0;
+  border-radius: 3px;
+  padding: 11px;
+  background: transparent;
+}
+.detached-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
 button {
   border: 1px solid #3e5262;
   background: #223140;
@@ -153,5 +283,11 @@ form button {
   }
   .terminal-bar {
     padding: 8px 16px;
+  }
+  .workbench-toolbar {
+    flex-wrap: wrap;
+  }
+  .toolbar-actions {
+    flex-wrap: wrap;
   }
 }

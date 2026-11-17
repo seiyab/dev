@@ -1,5 +1,6 @@
 export const PROTOCOL_VERSION = 1;
 export const MAX_MESSAGE_BYTES = 32 * 1024;
+export * from "./workspace.js";
 
 export type ClientMessage =
   | { type: "input"; data: string }
