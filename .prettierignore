@@ -1,0 +1,9 @@
+node_modules
+dist
+pnpm-lock.yaml
+playwright-report
+test-results
+DESIGN.md
+Dockerfile*
+compose.yaml
+*.sh

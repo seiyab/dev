@@ -1,0 +1,23 @@
+services:
+  workbench:
+    build:
+      context: .
+      dockerfile: Dockerfile.workbench
+    init: true
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      WORKBENCH_ORIGIN: http://localhost:3000
+    volumes:
+      - workbench-projects:/home/node/workspace
+      - workbench-state:/home/node/.workbench
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 2g
+
+volumes:
+  workbench-projects:
+  workbench-state:

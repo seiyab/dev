@@ -1,0 +1,20 @@
+{
+  "name": "@workbench/bridge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "node --experimental-strip-types ../../scripts/build-bridge.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.8",
+    "@workbench/protocol": "workspace:*",
+    "hono": "4.13.18",
+    "node-pty": "1.1.0",
+    "ws": "8.23.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

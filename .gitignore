@@ -4,3 +4,10 @@ projects
 vscode-server
 lazy-lock.json
 share
+node_modules/
+dist/
+.workbench/
+workspace/
+.env
+test-results/
+playwright-report/
