@@ -272,3 +272,18 @@ test("a layout conflict preserves the saved layout and keeps local focus accurat
   ).json();
   expect(persisted.layout).toEqual(state.layout);
 });
+
+test("an ended terminal can be recreated with its keyboard handle intact", async ({
+  page,
+}) => {
+  await command(page, "export OLD_SESSION=previous; exit");
+  await page.getByRole("button", { name: "Recreate", exact: true }).click();
+  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
+    "Connected",
+  );
+  await command(page, "printf 'RECREATED_%s\\n' \"${OLD_SESSION:-fresh}\"");
+  await expect(page.locator(".xterm-rows")).toContainText("RECREATED_fresh");
+  await command(page, `IFS= read -rsn1 key; printf 'KEY_%d\\n' "'$key"`);
+  await prefix(page, "Control+g");
+  await expect(page.locator(".xterm-rows")).toContainText("KEY_7");
+});
