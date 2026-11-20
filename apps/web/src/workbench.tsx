@@ -1,5 +1,14 @@
+import { ecq } from "@seiyab/ecq";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/preact-query";
+import {
+  AuthenticationError,
+  createTerminalMutationOptions,
+  deleteTerminalMutationOptions,
+  saveLayoutMutationOptions,
+  workspaceQuery,
+} from "./api.js";
 import styles from "./workbench.module.css";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import {
   MAX_PANES,
   paneIds,
@@ -123,11 +132,36 @@ function Picker({
 }
 
 export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
-  const [layout, setLayout] = useState<Layout | null>(null);
-  const layoutRef = useRef<Layout | null>(null);
-  const [resources, setResources] = useState<TerminalResource[]>([]);
-  const resourcesRef = useRef<TerminalResource[]>([]);
-  const revision = useRef(0);
+  const workspace = useQuery(workspaceQuery());
+  useEffect(() => {
+    if (workspace.error instanceof AuthenticationError) onAuthRequired();
+  }, [workspace.error, onAuthRequired]);
+  if (!workspace.data) {
+    return <p role="status">Loading workspace… {workspace.error?.message}</p>;
+  }
+  // Initialize the editable draft once; picker refreshes must not replace it.
+  return (
+    <LoadedWorkbench
+      initialState={workspace.data}
+      resources={workspace.data.terminals}
+      onAuthRequired={onAuthRequired}
+    />
+  );
+}
+
+function LoadedWorkbench({
+  initialState,
+  resources,
+  onAuthRequired,
+}: {
+  initialState: WorkspaceState;
+  resources: TerminalResource[];
+  onAuthRequired: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [layout, setLayout] = useState<Layout | null>(initialState.layout);
+  const layoutRef = useRef<Layout | null>(initialState.layout);
+  const revision = useRef(initialState.revision);
   const queue = useRef(Promise.resolve());
   const blocked = useRef(false);
   const busy = useRef(false);
@@ -141,42 +175,42 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
   dialogRef.current = dialog;
   const alive = useRef(true);
 
-  function changeMode(next: typeof mode) {
+  const changeMode = useCallback((next: typeof mode) => {
     if (next === "prefix" && !blocked.current) setNotice("");
     modeRef.current = next;
     setMode(next);
+  }, []);
+  function onMutationError(error: Error) {
+    if (error instanceof AuthenticationError) onAuthRequired();
   }
-  async function api(path: string, options?: RequestInit) {
-    const response = await fetch(path, options);
-    if (response.status === 401) {
-      onAuthRequired();
-      throw new Error("Authentication expired");
-    }
-    if (!response.ok) throw new Error(await response.text());
-    return response.json();
+  function currentResources() {
+    // Mutation continuations can run before the query observer rerenders.
+    return (
+      queryClient.getQueryData<WorkspaceState>(workspaceQuery().queryKey)
+        ?.terminals ?? []
+    );
   }
-  function updateResources(next: TerminalResource[]) {
-    resourcesRef.current = next;
-    setResources(next);
-  }
+  const saveLayout = useMutation({
+    ...saveLayoutMutationOptions,
+    onError: onMutationError,
+  });
+  const createTerminal = useMutation({
+    ...createTerminalMutationOptions,
+    onError: onMutationError,
+  });
+  const deleteTerminal = useMutation({
+    ...deleteTerminalMutationOptions,
+    onError: onMutationError,
+  });
   useEffect(() => {
     alive.current = true;
-    void api("/api/workspace")
-      .then((state: WorkspaceState) => {
-        if (!alive.current) return;
-        revision.current = state.revision;
-        updateResources(state.terminals);
-        layoutRef.current = state.layout;
-        setLayout(state.layout);
-      })
-      .catch((error: Error) => setNotice(error.message));
     return () => {
       alive.current = false;
     };
   }, []);
 
   function commit(next: Layout) {
-    if (blocked.current || !parseLayout(next, resourcesRef.current)) return;
+    if (blocked.current || !parseLayout(next, currentResources())) return;
     layoutRef.current = next;
     setLayout(next);
     setNotice("");
@@ -184,11 +218,9 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
     queue.current = queue.current
       .then(async () => {
         if (blocked.current) return;
-        const state: WorkspaceState = await api("/api/layout", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ revision: revision.current, layout: next }),
-          keepalive: true,
+        const state = await saveLayout.mutateAsync({
+          layout: next,
+          revision: revision.current,
         });
         revision.current = state.revision;
       })
@@ -229,9 +261,15 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
     setDialog(kind);
     changeMode("normal");
     if (kind === "terminals")
-      void api("/api/workspace")
-        .then((state: WorkspaceState) => updateResources(state.terminals))
-        .catch((error: Error) => setNotice(error.message));
+      void queryClient
+        .invalidateQueries(
+          { queryKey: ecq.keyOf(workspaceQuery) },
+          { throwOnError: true },
+        )
+        .catch((error: Error) => {
+          if (error instanceof AuthenticationError) onAuthRequired();
+          setNotice(error.message);
+        });
   }
   function insert(id: string, axis: "x" | "y") {
     const current = layoutRef.current;
@@ -246,7 +284,7 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
       activeId: id,
       zoomedId: null,
     };
-    if (!parseLayout(next, resourcesRef.current)) {
+    if (!parseLayout(next, currentResources())) {
       setNotice(
         "Layout nesting limit reached. The terminal is available in the detached picker.",
       );
@@ -263,10 +301,7 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
     }
     busy.current = true;
     try {
-      const terminal: TerminalResource = await api("/api/terminals", {
-        method: "POST",
-      });
-      updateResources([...resourcesRef.current, terminal]);
+      const terminal = await createTerminal.mutateAsync();
       insert(terminal.id, axis);
     } catch (error) {
       setNotice((error as Error).message);
@@ -291,10 +326,7 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
   async function terminate(id: string) {
     try {
       await queue.current;
-      const state: WorkspaceState = await api(`/api/terminals/${id}`, {
-        method: "DELETE",
-      });
-      updateResources(state.terminals);
+      await deleteTerminal.mutateAsync(id);
     } catch (error) {
       setNotice((error as Error).message);
     }
@@ -441,7 +473,7 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
       window.removeEventListener("keydown", keydown, true);
       window.removeEventListener("blur", clear);
     };
-  }, []);
+  }, [changeMode]);
   const resizeRef = useRef(resize);
   resizeRef.current = resize;
 

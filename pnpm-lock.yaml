@@ -57,6 +57,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@seiyab/ecq':
+        specifier: 0.1.4
+        version: 0.1.4
+      '@tanstack/preact-query':
+        specifier: 5.108.0
+        version: 5.108.0(preact@11.2.0)
       '@workbench/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -874,6 +880,17 @@ packages:
     peerDependenciesMeta:
       rollup:
         optional: true
+
+  '@seiyab/ecq@0.1.4':
+    resolution: {integrity: sha512-+Mewes8CDRovVOrPzLJvqrfflkEYLWh2jZ/RE7eSbahKtDZyWorclWRz4aSY673Q8UnXnjCnx/i7vJwiisGyRw==}
+
+  '@tanstack/preact-query@5.108.0':
+    resolution: {integrity: sha512-80pelsj7Qjz4BN1jWI0D9oTndTZ0BuazzZDhUJaHBq4wOZMv1Mj/GzkIfoeplGtLQriD6JQ/nzP1MzEhqCYe/g==}
+    peerDependencies:
+      preact: ^10.0.0 || ^11.0.0-0
+
+  '@tanstack/query-core@5.108.0':
+    resolution: {integrity: sha512-X9zJUtEV/0D2q9pmGS/Bza8S4bNovSBhZOtdhtu0fzsHwizC6C+Eh/q5CX3MQBchsRMrirWVQmv7Fp4OStzV9g==}
 
   '@tybys/wasm-util@0.10.4':
     resolution: {integrity: sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A==}
@@ -2685,6 +2702,15 @@ snapshots:
       '@types/estree': 1.0.10
       estree-walker: 2.0.2
       picomatch: 4.0.7
+
+  '@seiyab/ecq@0.1.4': {}
+
+  '@tanstack/preact-query@5.108.0(preact@11.2.0)':
+    dependencies:
+      '@tanstack/query-core': 5.108.0
+      preact: 11.2.0
+
+  '@tanstack/query-core@5.108.0': {}
 
   '@tybys/wasm-util@0.10.4':
     dependencies:

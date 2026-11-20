@@ -42,6 +42,7 @@ boundary.
 | Area | Choice |
 | --- | --- |
 | Frontend | Preact, Vite, xterm.js |
+| API state | TanStack Query with @seiyab/ecq query factories |
 | Backend | Node.js, Hono with its Node WebSocket adapter, node-pty |
 | Terminal persistence | tmux |
 | Type checking | tsgo |
@@ -59,6 +60,16 @@ packages/protocol
 Pin compatible runtime and dependency versions during implementation. Build
 node-pty inside the target Linux image; do not mount host node_modules. Keep type
 checking separate from frontend bundling. No database is required for v1.
+
+Session and workspace reads use shared ECQ query factories. API writes use
+TanStack Query mutations. The loaded workspace initializes a local layout draft;
+terminal resources are read directly from the workspace query cache. Creating or
+terminating a terminal updates that cache from the mutation response and
+invalidates the workspace query. Opening the detached-terminal picker also
+invalidates it. These refreshes do not replace the draft or its revision.
+Layout saves stay queued and revision-checked. Automatic
+focus/reconnect refetches and write retries are disabled, and authentication
+expiry clears the cached workspace before the next sign-in.
 
 ## Work and layout model
 

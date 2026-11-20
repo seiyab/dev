@@ -287,3 +287,107 @@ test("an ended terminal can be recreated with its keyboard handle intact", async
   await prefix(page, "Control+g");
   await expect(page.locator(".xterm-rows")).toContainText("KEY_7");
 });
+
+test("queued layout mutations use each preceding save's revision", async ({
+  page,
+}) => {
+  const revisions: number[] = [];
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/layout", async (route) => {
+    revisions.push(route.request().postDataJSON().revision);
+    if (revisions.length === 1) await held;
+    await route.continue();
+  });
+  try {
+    await prefix(page, "%");
+    await expect.poll(() => revisions.length).toBe(1);
+    await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+    await prefix(page, "z");
+    await expect(page.locator("[data-pane-id]:visible")).toHaveCount(1);
+    const refreshed = page.waitForResponse("**/api/workspace");
+    await prefix(page, "d");
+    await refreshed;
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+    await expect(page.locator("[data-pane-id]:visible")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    expect(revisions).toHaveLength(1);
+  } finally {
+    release();
+  }
+  await saved(page);
+  expect(revisions).toHaveLength(2);
+  expect(revisions[1]).toBe(revisions[0]! + 1);
+  await page.reload();
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await expect(page.locator("[data-pane-id]:visible")).toHaveCount(1);
+});
+
+test("signing in after session expiry loads a fresh workspace", async ({
+  page,
+  context,
+}) => {
+  await prefix(page, "%");
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await saved(page);
+  await context.clearCookies();
+  await page
+    .getByRole("button", { name: "Detached terminals", exact: true })
+    .click();
+  await expect(page.getByLabel("Access key")).toBeVisible();
+  await page
+    .getByLabel("Access key")
+    .fill(readFileSync(join(dir, "access-key"), "utf8").trim());
+  await page.getByRole("button", { name: "Open terminal" }).click();
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await expect(page.locator("[data-pane-id] footer [role=status]")).toHaveText([
+    "Connected",
+    "Connected",
+  ]);
+  await prefix(page, "z");
+  await saved(page);
+  await expect(page.locator("[data-pane-id]:visible")).toHaveCount(1);
+});
+
+test("terminal mutations update the query cache even when invalidation refetches fail", async ({
+  page,
+}) => {
+  let failNextRefresh = true;
+  let refreshes = 0;
+  await page.route("**/api/workspace", async (route) => {
+    refreshes++;
+    if (failNextRefresh) {
+      failNextRefresh = false;
+      await route.fulfill({
+        status: 503,
+        body: "Workspace refresh unavailable",
+      });
+    } else {
+      await route.continue();
+    }
+  });
+  await prefix(page, "%");
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await expect(
+    page.locator("[data-active='true']").getByRole("status"),
+  ).toHaveText("Connected");
+  await saved(page);
+  expect(refreshes).toBe(1);
+  await prefix(page, "x");
+  await saved(page);
+  await prefix(page, "d");
+  const terminate = page.getByRole("button", { name: /^Terminate Terminal/ });
+  await expect(terminate).toBeVisible();
+  await expect.poll(() => refreshes).toBe(2);
+  failNextRefresh = true;
+  await terminate.click();
+  await expect(terminate).toHaveCount(0);
+  await expect.poll(() => refreshes).toBe(3);
+  await expect(
+    page.getByText("No detached terminals.", { exact: false }),
+  ).toBeVisible();
+  await expect(page.locator("[data-pane-id]")).toHaveCount(1);
+});

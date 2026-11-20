@@ -1,44 +1,32 @@
+import { ecq } from "@seiyab/ecq";
 import { render } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useState } from "preact/hooks";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/preact-query";
+import { loginMutationOptions, sessionQuery, workspaceQuery } from "./api.js";
 import { Workbench } from "./workbench.js";
 import styles from "./main.module.css";
 import "./style.css";
 
 function App() {
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const queryClient = useQueryClient();
+  const session = useQuery(sessionQuery());
   const [key, setKey] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    fetch("/api/session")
-      .then((r) => setAuthenticated(r.ok))
-      .catch(() => {
-        setAuthenticated(false);
-        setError("Bridge unavailable");
-      });
-  }, []);
-  async function login(event: SubmitEvent) {
+  const loginMutation = useMutation(loginMutationOptions);
+  const onAuthRequired = useCallback(() => {
+    queryClient.removeQueries({ queryKey: ecq.keyOf(workspaceQuery) });
+    queryClient.setQueryData(sessionQuery().queryKey, false);
+  }, [queryClient]);
+  function login(event: SubmitEvent) {
     event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key }),
-      });
-      if (!response.ok) {
-        setError(await response.text());
-        return;
-      }
-      setKey("");
-      setAuthenticated(true);
-    } catch {
-      setError("Bridge unavailable");
-    } finally {
-      setBusy(false);
-    }
+    loginMutation.mutate(key, { onSuccess: () => setKey("") });
   }
+  const error = loginMutation.error?.message ?? session.error?.message;
   return (
     <main class={styles.main}>
       <header class={styles.header}>
@@ -47,12 +35,12 @@ function App() {
         </div>
         <span class={styles.subtitle}>Development terminal</span>
       </header>
-      {authenticated === null ? (
+      {session.isPending ? (
         <section class={styles.login}>
           <p>Connecting to your workspace…</p>
         </section>
-      ) : authenticated ? (
-        <Workbench onAuthRequired={() => setAuthenticated(false)} />
+      ) : session.data ? (
+        <Workbench onAuthRequired={onAuthRequired} />
       ) : (
         <section class={styles.login}>
           <form class={styles.form} onSubmit={login}>
@@ -70,8 +58,8 @@ function App() {
               value={key}
               onInput={(event) => setKey(event.currentTarget.value)}
             />
-            <button class={styles.submit} disabled={busy}>
-              {busy ? "Connecting…" : "Open terminal"}
+            <button class={styles.submit} disabled={loginMutation.isPending}>
+              {loginMutation.isPending ? "Connecting…" : "Open terminal"}
             </button>
             {error && (
               <p class={styles.error} role="alert">
@@ -85,4 +73,24 @@ function App() {
   );
 }
 
-render(<App />, document.getElementById("app")!);
+// Layouts are edited locally with revision-checked saves. Refetch only when
+// requested, and never retry or defer writes that may already have succeeded.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      networkMode: "always",
+      gcTime: 0,
+    },
+    mutations: { retry: false, networkMode: "always" },
+  },
+});
+
+render(
+  <QueryClientProvider client={queryClient}>
+    <App />
+  </QueryClientProvider>,
+  document.getElementById("app")!,
+);
