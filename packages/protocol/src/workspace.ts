@@ -20,11 +20,26 @@ export interface TerminalResource {
   id: string;
   title: string;
   started: boolean;
+  sessionId: string;
 }
+export interface WorkSession {
+  id: string;
+  name: string;
+  directory: string;
+  archived: boolean;
+  layout: Layout;
+}
+export type SessionAction =
+  | { action: "create"; name: string; directory: string }
+  | { action: "rename"; id: string; name: string }
+  | { action: "select" | "archive" | "delete"; id: string };
 export interface WorkspaceState {
-  version: 1;
+  version: 2;
+  sessions: WorkSession[];
+  selectedSessionId: string | null;
   revision: number;
   terminals: TerminalResource[];
+  /** Selected session layout, retained as a projection for the layout endpoint. */
   layout: Layout;
 }
 export const validId = (id: unknown): id is string =>
@@ -39,7 +54,7 @@ export function paneIds(node: PaneNode | null): string[] {
 
 export function parseLayout(
   value: unknown,
-  terminals: TerminalResource[],
+  terminals: Pick<TerminalResource, "id">[],
 ): Layout | null {
   if (!value || typeof value !== "object") return null;
   const layout = value as Layout;

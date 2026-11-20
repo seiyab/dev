@@ -2,6 +2,7 @@ import { ecq } from "@seiyab/ecq";
 import { mutationOptions } from "@tanstack/preact-query";
 import type {
   Layout,
+  SessionAction,
   TerminalResource,
   WorkspaceState,
 } from "@workbench/protocol";
@@ -60,18 +61,30 @@ export const loginMutationOptions = mutationOptions({
 });
 
 export const saveLayoutMutationOptions = mutationOptions({
-  mutationFn: ({ layout, revision }: { layout: Layout; revision: number }) =>
+  mutationFn: ({
+    layout,
+    revision,
+    sessionId,
+  }: {
+    layout: Layout;
+    revision: number;
+    sessionId: string | null;
+  }) =>
     request<WorkspaceState>("/api/layout", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ revision, layout }),
+      body: JSON.stringify({ revision, layout, sessionId }),
       keepalive: true,
     }),
 });
 
 export const createTerminalMutationOptions = mutationOptions({
-  mutationFn: () =>
-    request<TerminalResource>("/api/terminals", { method: "POST" }),
+  mutationFn: (sessionId: string | null) =>
+    request<TerminalResource>("/api/terminals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId }),
+    }),
   onSuccess: (terminal, _variables, _onMutateResult, { client }) => {
     // Keep confirmed resources available even if the subsequent refresh fails.
     client.setQueryData<WorkspaceState>(workspaceQuery().queryKey, (state) =>
@@ -93,5 +106,18 @@ export const deleteTerminalMutationOptions = mutationOptions({
     return client.invalidateQueries({
       queryKey: ecq.keyOf(workspaceQuery),
     });
+  },
+});
+
+export const sessionMutationOptions = mutationOptions({
+  mutationFn: (action: SessionAction & { revision: number }) =>
+    request<WorkspaceState>("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(action),
+    }),
+  onSuccess: async (state, _variables, _onMutateResult, { client }) => {
+    await client.cancelQueries({ queryKey: workspaceQuery().queryKey });
+    client.setQueryData(workspaceQuery().queryKey, state);
   },
 });

@@ -1,5 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  mkdirSync,
+  existsSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -397,4 +403,179 @@ test("terminal mutations update the query cache even when invalidation refetches
     page.getByText("No detached terminals.", { exact: false }),
   ).toBeVisible();
   await expect(page.locator("[data-pane-id]")).toHaveCount(1);
+});
+
+async function createSession(page: Page, name: string, directory: string) {
+  await prefix(page, "p");
+  await page
+    .getByRole("button", { name: "Create session", exact: true })
+    .click();
+  await page.getByLabel("Session name").fill(name);
+  await page.getByLabel("Working directory").fill(directory);
+  await page
+    .getByRole("button", { name: "Create session", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
+    "Connected",
+  );
+}
+async function switchSession(page: Page, name: string) {
+  await prefix(page, "s");
+  await page
+    .getByRole("button", { name: `Switch to ${name}`, exact: false })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+test("directory sessions preserve independent shells, layouts, and selection", async ({
+  page,
+}) => {
+  mkdirSync(join(dir, "project"));
+  await command(page, "export SESSION_MARKER=original");
+  await prefix(page, "%");
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await saved(page);
+  await createSession(page, "Project", "project");
+  await command(page, "printf 'DIRECTORY_%s\\n' \"$PWD\"");
+  await expect(page.locator(".xterm-rows")).toContainText(
+    `DIRECTORY_${join(dir, "project")}`,
+  );
+  await command(page, "export SESSION_MARKER=project");
+  await prefix(page, "%");
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await expect(
+    page.locator("[data-active='true']").getByRole("status"),
+  ).toHaveText("Connected");
+  await command(page, "pwd");
+  await expect(page.locator("[data-active='true'] .xterm-rows")).toContainText(
+    join(dir, "project"),
+  );
+  await prefix(page, "x");
+  await saved(page);
+  await switchSession(page, "Default");
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await prefix(page, "d");
+  await expect(page.getByRole("dialog")).toContainText("No detached terminals");
+  await page.keyboard.press("Escape");
+  await prefix(page, "h");
+  await command(page, "echo MARKER_$SESSION_MARKER");
+  await expect(page.locator("[data-active='true'] .xterm-rows")).toContainText(
+    "MARKER_original",
+  );
+  await switchSession(page, "Project");
+  await expect(page.locator("[data-pane-id]")).toHaveCount(1);
+  await page.reload();
+  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
+    "Connected",
+  );
+  await command(page, "echo MARKER_$SESSION_MARKER");
+  await expect(page.locator(".xterm-rows")).toContainText("MARKER_project");
+  await prefix(page, "d");
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: /Reopen Terminal/ }),
+  ).toHaveCount(1);
+});
+
+test("sessions can be renamed, archived, reopened, and explicitly deleted", async ({
+  page,
+}) => {
+  await command(
+    page,
+    "export SESSION_MARKER=survives_archive; touch session-file",
+  );
+  await prefix(page, "s");
+  await page
+    .getByRole("button", { name: "Rename Default", exact: true })
+    .click();
+  await page.getByLabel("Session name").fill("Renamed");
+  await page.getByRole("button", { name: "Save name" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await prefix(page, "s");
+  await page
+    .getByRole("button", { name: "Archive Renamed", exact: true })
+    .click();
+  await expect(page.locator("[data-pane-id]")).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Choose a work session" }),
+  ).toBeVisible();
+  await prefix(page, "s");
+  await expect(
+    page.getByRole("button", { name: /Reopen Renamed/ }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Show archived sessions" }).click();
+  await page.getByRole("button", { name: /Reopen Renamed/ }).click();
+  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
+    "Connected",
+  );
+  await command(page, "echo MARKER_$SESSION_MARKER");
+  await expect(page.locator(".xterm-rows")).toContainText(
+    "MARKER_survives_archive",
+  );
+  await prefix(page, "s");
+  await page
+    .getByRole("button", { name: "Delete Renamed", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Delete Renamed", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Delete session and terminate terminals" })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-pane-id]")).toHaveCount(0);
+  const state = await (
+    await page.request.get("http://127.0.0.1:3173/api/workspace")
+  ).json();
+  expect(state.sessions).toEqual([]);
+  expect(state.terminals).toEqual([]);
+  expect(state.selectedSessionId).toBeNull();
+  expect(existsSync(join(dir, "session-file"))).toBe(true);
+  expect(() =>
+    execFileSync("tmux", ["-L", tmuxSocket, "has-session", "-t", "=terminal"], {
+      stdio: "ignore",
+    }),
+  ).toThrow();
+  await createSession(page, "Fresh", ".");
+});
+
+test("switching sessions waits for queued layout saves", async ({ page }) => {
+  await createSession(page, "Other", ".");
+  await switchSession(page, "Default");
+  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
+    "Connected",
+  );
+  let release!: () => void;
+  let saving = false;
+  let switching = false;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/layout", async (route) => {
+    saving = true;
+    await held;
+    await route.continue();
+  });
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/sessions")) switching = true;
+  });
+  try {
+    await prefix(page, "%");
+    await expect.poll(() => saving).toBe(true);
+    await prefix(page, "s");
+    await page.getByRole("button", { name: /Switch to Other/ }).click();
+    await expect(
+      page.getByRole("button", { name: /Switch to Other/ }),
+    ).toBeDisabled();
+    expect(switching).toBe(false);
+    release();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await switchSession(page, "Default");
+    await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  } finally {
+    release();
+  }
 });

@@ -26,10 +26,10 @@ is reset when the bridge restarts.
 
 ## Panes and keyboard controls
 
-The current workbench has one work session and one tab. Click a pane to focus it;
-its green border indicates where ordinary keyboard input goes. Splits create
-new terminals in the workspace directory. Each terminal has its own shell and
-tmux session. Splitting, resizing, and zooming preserve existing terminal views
+Each named work session has a working directory, pane layout, and its own terminal
+resources. Click a pane to focus it; its green border indicates where ordinary
+keyboard input goes. Splits create new terminals in the session's directory. Each
+terminal has its own shell and tmux session. Splitting, resizing, and zooming preserve existing terminal views
 and processes.
 
 Press **Ctrl-g**, release it, then press a command key:
@@ -43,6 +43,7 @@ Press **Ctrl-g**, release it, then press a command key:
 | `z`                   | Zoom the active pane or restore the layout       |
 | `x`                   | Close the pane and keep its terminal             |
 | `d`                   | Open the detached-terminal picker                |
+| `s`                   | Switch or manage work sessions                   |
 | `p` / `?`             | Open the command palette and binding help        |
 | `Ctrl-g`              | Send a literal Ctrl-g to the focused application |
 | `Escape`              | Cancel the pending command or leave resize mode  |
@@ -54,8 +55,10 @@ visible feedback. IME composition and browser/OS shortcuts are left alone in
 normal typing mode. Losing browser focus clears the pending prefix/resize mode.
 Toolbar buttons and the command palette invoke the same actions as shortcuts.
 
-Closing a pane never kills its terminal. Reopen it from **Detached terminals**,
-even after closing the last pane or reloading the browser. The picker also offers
+Manually closing a pane keeps its terminal running. Reopen it from **Detached
+terminals**, even after closing the last pane or reloading the browser. Exiting
+its shell automatically closes the pane; the work session remains, even when its
+last shell exits. Start a new terminal to get another shell. The picker also offers
 **Terminate**, which ends a detached terminal and removes its resource. Use
 Disconnect to release control without removing a pane. Hidden panes stay
 connected while another is zoomed.
@@ -64,9 +67,35 @@ Layout, focus, zoom, split ratios, and terminal identities are stored in version
 `workspace.json` in the state volume. Wait for **Layout saved** before closing the
 browser immediately after changing the layout. Writes use atomic replacement and
 revision checks: concurrent layout edits are rejected with a reload message.
-There is a limit of 16 visible panes and 64 terminal resources; terminate unused
-detached terminals to free resources. The original prototype's terminal is reused
+There is a limit of 16 panes per session, 64 sessions, and 64 terminal resources
+across all sessions; terminate unused detached terminals to free resources. The original prototype's terminal is reused
 when workspace metadata is first created.
+
+## Work sessions
+
+Use **Ctrl-g s** to switch or manage sessions. Use **Create session** in the command
+palette (**Ctrl-g p**) or session picker to supply a name and an existing directory.
+Relative directories resolve from the configured workspace root (`/home/node/workspace`
+in Compose); absolute directories must also be inside that root. The workbench
+does not create directories or Git worktrees. New terminals start in this directory;
+existing shells retain their current directories.
+
+Switching saves pending layout edits before detaching the previous session's
+views. Shells keep running, and switching back restores its layout and focus.
+The selected session is restored on reload. Detached-terminal pickers only show
+terminals belonging to the current session.
+
+The session picker offers rename, archive, and delete. **Archive** hides a session
+from the normal list while preserving its shells and layout. Choose **Show archived
+sessions**, then **Reopen**, to restore it. **Delete** asks for confirmation, terminates
+all of that session's terminals (including detached ones), and removes its metadata.
+It leaves project files intact. Archiving or deleting the selected session switches
+to another unarchived session, or shows an empty session chooser if none remain.
+
+Existing workspace metadata is automatically migrated to version 2 as a **Default**
+session, preserving terminal IDs and layout. All sessions share the container and
+filesystem; they provide organization rather than isolation. Session and layout
+edits share revision checks, so conflicting edits from another browser require reload.
 
 ```sh
 docker compose -f compose.workbench.yaml down
@@ -125,9 +154,9 @@ authentication, upgrade rejection, independent terminals, layout validation and
 revision conflicts, bridge restart, explicit recreation, resize, reconnect, and
 high-output flow control. Browser tests use the production frontend and verify
 keyboard splits, focus, resizing, zoom, prefix passthrough, reload persistence,
-detached terminals, and an unsaved nvim buffer. Browser tests require nvim.
+detached terminals, directory sessions, archive/reopen/delete, and an unsaved nvim buffer. Browser tests require nvim.
 
-Multiple tabs and work sessions, mouse-drag resizing, configurable bindings,
+Multiple tabs, worktree integration, mouse-drag resizing, configurable bindings,
 controller takeover, PWA installation, and scoped GitHub publishing are later
 increments.
 The existing container and Git scripts remain unchanged.

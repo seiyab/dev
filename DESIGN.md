@@ -78,6 +78,11 @@ working directory, execution workspace, optional issue or PR, optional agent
 conversations, terminal resources, and saved layout. It can exist before a PR or
 agent conversation exists.
 
+The current implementation starts with a name and an existing directory inside
+one execution workspace. Each session owns a split layout and terminal resources;
+no tabs, worktree creation, or external issue/PR integration yet. The selected
+session survives browser reloads. Relative paths resolve from the workspace root.
+
 An execution workspace is the environment that runs code. Work sessions and
 execution workspaces have separate identities. Sharing a container or using Git
 worktrees provides organizational separation, not a security boundary.
@@ -136,9 +141,16 @@ docking. Moving panes between tabs can follow the core prototype.
 - Pane close: remove the view and detach; do not terminate its process.
 - Explicit terminal termination: end that terminal's tmux session and release
   its resources.
+- Shell exit: automatically close its pane; keep the work session, even if empty.
+- Session switch: save pending edits, detach views, and preserve shells and layouts.
+- Session archive: hide the context without terminating its shells; reopening
+  unarchives it and restores its layout.
+- Session delete: explicitly confirm termination of all of its terminals and remove
+  its metadata, leaving project files intact.
 - Session reopen: restore layout and reattach available terminal resources.
 - Container restart: running processes end. Preserve metadata and display
-  unavailable terminals honestly; recreating a shell is an explicit action.
+  unavailable terminals honestly. Ended terminal panes close on attachment;
+  starting a replacement shell requires an explicit new-terminal action.
 - Second client: require explicit takeover before granting terminal control.
   The previous controller must lose input and resize authority.
 
@@ -151,7 +163,7 @@ tmux preserves processes and redraws the current terminal on reconnect. Complete
 historical scrollback restoration is deferred. Offer a picker for detached
 terminals so their processes remain discoverable.
 
-Splitting creates a terminal in the configured workspace directory. Inheriting
+Splitting creates a terminal in the current work session’s configured directory. Inheriting
 the active shell's current directory is deferred. On focus or geometry changes,
 the active controller supplies terminal dimensions to the bridge and PTY.
 

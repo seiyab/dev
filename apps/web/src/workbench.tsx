@@ -6,13 +6,22 @@ import {
   deleteTerminalMutationOptions,
   saveLayoutMutationOptions,
   workspaceQuery,
+  sessionMutationOptions,
 } from "./api.js";
+import { SessionDialog, type SessionDialogMode } from "./session-dialog.js";
 import styles from "./workbench.module.css";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks";
 import {
   MAX_PANES,
   paneIds,
   parseLayout,
+  type SessionAction,
   type Direction,
   type Layout,
   type TerminalResource,
@@ -34,7 +43,7 @@ interface Command {
   key: string;
   run: () => void;
 }
-type DialogKind = "commands" | "terminals";
+type DialogKind = "commands" | "terminals" | SessionDialogMode;
 function Picker({
   kind,
   commands,
@@ -44,7 +53,7 @@ function Picker({
   terminate,
   notice,
 }: {
-  kind: DialogKind;
+  kind: "commands" | "terminals";
   commands: Command[];
   detached: TerminalResource[];
   close: () => void;
@@ -99,7 +108,7 @@ function Picker({
                   key={command.id}
                 >
                   <span>{command.label}</span>
-                  <kbd>Ctrl-g {command.key}</kbd>
+                  {command.key && <kbd>Ctrl-g {command.key}</kbd>}
                 </button>
               ))
           : detached
@@ -142,8 +151,11 @@ export function Workbench({ onAuthRequired }: { onAuthRequired: () => void }) {
   // Initialize the editable draft once; picker refreshes must not replace it.
   return (
     <LoadedWorkbench
+      key={workspace.data.selectedSessionId ?? "no-session"}
       initialState={workspace.data}
-      resources={workspace.data.terminals}
+      resources={workspace.data.terminals.filter(
+        (t) => t.sessionId === workspace.data.selectedSessionId,
+      )}
       onAuthRequired={onAuthRequired}
     />
   );
@@ -165,6 +177,7 @@ function LoadedWorkbench({
   const queue = useRef(Promise.resolve());
   const blocked = useRef(false);
   const busy = useRef(false);
+  const changingSession = useRef(false);
   const handles = useRef(new Map<string, TerminalHandle>());
   const [mode, setMode] = useState<"normal" | "prefix" | "resize">("normal");
   const modeRef = useRef(mode);
@@ -186,8 +199,11 @@ function LoadedWorkbench({
   function currentResources() {
     // Mutation continuations can run before the query observer rerenders.
     return (
-      queryClient.getQueryData<WorkspaceState>(workspaceQuery().queryKey)
-        ?.terminals ?? []
+      queryClient
+        .getQueryData<WorkspaceState>(workspaceQuery().queryKey)
+        ?.terminals.filter(
+          (t) => t.sessionId === initialState.selectedSessionId,
+        ) ?? []
     );
   }
   const saveLayout = useMutation({
@@ -196,6 +212,10 @@ function LoadedWorkbench({
   });
   const createTerminal = useMutation({
     ...createTerminalMutationOptions,
+    onError: onMutationError,
+  });
+  const mutateSession = useMutation({
+    ...sessionMutationOptions,
     onError: onMutationError,
   });
   const deleteTerminal = useMutation({
@@ -210,7 +230,12 @@ function LoadedWorkbench({
   }, []);
 
   function commit(next: Layout) {
-    if (blocked.current || !parseLayout(next, currentResources())) return;
+    if (
+      blocked.current ||
+      changingSession.current ||
+      !parseLayout(next, currentResources())
+    )
+      return;
     layoutRef.current = next;
     setLayout(next);
     setNotice("");
@@ -221,6 +246,7 @@ function LoadedWorkbench({
         const state = await saveLayout.mutateAsync({
           layout: next,
           revision: revision.current,
+          sessionId: initialState.selectedSessionId,
         });
         revision.current = state.revision;
       })
@@ -294,14 +320,22 @@ function LoadedWorkbench({
   }
   async function newPane(axis: "x" | "y") {
     const current = layoutRef.current;
-    if (!current || busy.current || blocked.current) return;
+    if (
+      !current ||
+      !initialState.selectedSessionId ||
+      busy.current ||
+      blocked.current
+    )
+      return;
     if (paneIds(current.root).length >= MAX_PANES) {
       setNotice(`A layout supports up to ${MAX_PANES} panes.`);
       return;
     }
     busy.current = true;
     try {
-      const terminal = await createTerminal.mutateAsync();
+      const terminal = await createTerminal.mutateAsync(
+        initialState.selectedSessionId,
+      );
       insert(terminal.id, axis);
     } catch (error) {
       setNotice((error as Error).message);
@@ -331,6 +365,28 @@ function LoadedWorkbench({
       setNotice((error as Error).message);
     }
   }
+  async function sessionAction(action: SessionAction) {
+    if (busy.current || blocked.current) return false;
+    busy.current = true;
+    changingSession.current = true;
+    try {
+      await queue.current;
+      if (blocked.current) return false;
+      const state = await mutateSession.mutateAsync({
+        ...action,
+        revision: revision.current,
+      });
+      revision.current = state.revision;
+      return true;
+    } catch (error) {
+      onMutationError(error as Error);
+      setNotice((error as Error).message);
+      return false;
+    } finally {
+      busy.current = false;
+      changingSession.current = false;
+    }
+  }
   function move(direction: Direction) {
     const current = layoutRef.current;
     if (!current?.activeId) return;
@@ -356,6 +412,39 @@ function LoadedWorkbench({
     }
   }
   const commands: Command[] = [
+    {
+      id: "sessions",
+      label: "Switch / manage sessions",
+      key: "s",
+      run: () => openPicker("sessions"),
+    },
+    {
+      id: "create-session",
+      label: "Create session",
+      key: "",
+      run: () => openPicker("create-session"),
+    },
+    ...(initialState.selectedSessionId
+      ? [
+          {
+            id: "rename-session",
+            label: "Rename session",
+            key: "",
+            run: () => openPicker("rename-session"),
+          },
+          {
+            id: "archive-session",
+            label: "Archive session (keep terminals)",
+            key: "",
+            run: () => {
+              void sessionAction({
+                action: "archive",
+                id: initialState.selectedSessionId!,
+              });
+            },
+          },
+        ]
+      : []),
     {
       id: "split-x",
       label: "Split left / right",
@@ -421,7 +510,7 @@ function LoadedWorkbench({
   ];
   const commandsRef = useRef(commands);
   commandsRef.current = commands;
-  useEffect(() => {
+  useLayoutEffect(() => {
     function keydown(event: KeyboardEvent) {
       if (event.isComposing || dialogRef.current) return;
       const prefix =
@@ -490,9 +579,21 @@ function LoadedWorkbench({
     <>
       <div class={styles.toolbar}>
         <span>
-          Workspace <span class={styles.muted}>/ implementation</span>
+          {initialState.sessions.find(
+            (s) => s.id === initialState.selectedSessionId,
+          )?.name ?? "No session selected"}{" "}
+          <span class={styles.muted}>
+            {
+              initialState.sessions.find(
+                (s) => s.id === initialState.selectedSessionId,
+              )?.directory
+            }
+          </span>
         </span>
         <div class={styles.toolbarActions}>
+          <button onClick={() => openPicker("sessions")}>
+            Sessions <kbd>Ctrl-g s</kbd>
+          </button>
           <button
             onClick={() => commands.find((c) => c.id === "terminals")?.run()}
           >
@@ -548,18 +649,34 @@ function LoadedWorkbench({
         ) : (
           !layout.root && (
             <div class={styles.empty}>
-              <h2>Your terminals are still here.</h2>
-              <p>Reopen a detached terminal or start a new one.</p>
-              <button onClick={() => openPicker("terminals")}>
-                Detached terminals
-              </button>{" "}
-              <button
-                onClick={() => {
-                  void newPane("x");
-                }}
-              >
-                New terminal
-              </button>
+              <h2>
+                {initialState.selectedSessionId
+                  ? "No open panes"
+                  : "Choose a work session"}
+              </h2>
+              <p>
+                {initialState.selectedSessionId
+                  ? "Reopen a detached terminal or start a new one."
+                  : "Use Ctrl-g s to create or reopen a session."}
+              </p>
+              {initialState.selectedSessionId ? (
+                <>
+                  <button onClick={() => openPicker("terminals")}>
+                    Detached terminals
+                  </button>{" "}
+                  <button
+                    onClick={() => {
+                      void newPane("x");
+                    }}
+                  >
+                    New terminal
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => openPicker("sessions")}>
+                  Choose session
+                </button>
+              )}
             </div>
           )
         )}
@@ -572,7 +689,7 @@ function LoadedWorkbench({
       >
         {notice ||
           (mode === "prefix"
-            ? 'Ctrl-g → % split ↔ · " split ↕ · h/j/k/l focus · H/J/K/L resize · z zoom · x close · d detached · ? help · Esc cancel'
+            ? 'Ctrl-g → % split ↔ · " split ↕ · h/j/k/l focus · H/J/K/L resize · z zoom · x close · d detached · s sessions · ? help · Esc cancel'
             : mode === "resize"
               ? "Resize mode · h/j/k/l move boundary · Escape finishes"
               : pending
@@ -581,7 +698,17 @@ function LoadedWorkbench({
                   ? "Layout saved · Zoomed · Ctrl-g z to restore"
                   : "Layout saved · Ctrl-g ? for commands")}
       </div>
-      {dialog && (
+      {dialog && dialog !== "commands" && dialog !== "terminals" && (
+        <SessionDialog
+          mode={dialog}
+          sessions={initialState.sessions}
+          selectedId={initialState.selectedSessionId}
+          close={closeDialog}
+          act={sessionAction}
+          notice={notice}
+        />
+      )}
+      {(dialog === "commands" || dialog === "terminals") && (
         <Picker
           kind={dialog}
           commands={commands}
