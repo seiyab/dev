@@ -14,7 +14,7 @@
     "lint": "oxlint apps packages",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "tsx --test apps/bridge/test/*.test.ts",
+    "test": "tsx --test apps/bridge/test/*.test.ts scripts/*.test.js",
     "test:browser": "playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build"
   },

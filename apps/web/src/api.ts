@@ -117,7 +117,7 @@ export const sessionMutationOptions = mutationOptions({
       body: JSON.stringify(action),
     }),
   onSuccess: async (state, _variables, _onMutateResult, { client }) => {
-    await client.cancelQueries({ queryKey: workspaceQuery().queryKey });
+    await client.cancelQueries({ queryKey: ecq.keyOf(workspaceQuery) });
     client.setQueryData(workspaceQuery().queryKey, state);
   },
 });

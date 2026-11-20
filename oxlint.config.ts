@@ -9,6 +9,7 @@ export default defineConfig({
   jsPlugins: [
     { name: "preact", specifier: "./scripts/preact-oxlint-plugin.js" },
     "@tanstack/eslint-plugin-query",
+    { name: "ecq", specifier: "./scripts/ecq-oxlint-plugin.js" },
   ],
   overrides: [
     {
@@ -16,6 +17,7 @@ export default defineConfig({
       // Use the preset's plugin rules; keep Oxlint's existing core rule policy.
       rules: {
         ...queryPlugin.configs.recommended.rules,
+        "ecq/filter-keys": ["error", { queryModules: ["./api.js"] }],
         ...Object.fromEntries(
           Object.entries(preset.rules)
             .filter(([name]) => name.includes("/"))

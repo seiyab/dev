@@ -149,6 +149,14 @@ pnpm exec playwright install chromium
 pnpm test:browser
 ```
 
+The local Oxlint rule `ecq/filter-keys` requires `ecq.keyOf(factory)` instead of
+`factory().queryKey` in non-exact query filters, including invalidation, removal,
+refetch, and cancellation. It recognizes local `ecq.query`/`ecq.client` factories
+and imports from the `queryModules` configured in `oxlint.config.ts`. Exact cache
+reads/writes, filters with `exact: true`, and factory calls with arguments stay
+unchanged. `pnpm exec oxlint --fix apps packages` fixes violations when an
+unshadowed ECQ import is available. Rule integration tests run with `pnpm test`.
+
 Backend integration tests create temporary tmux servers and exercise real PTYs,
 authentication, upgrade rejection, independent terminals, layout validation and
 revision conflicts, bridge restart, explicit recreation, resize, reconnect, and
