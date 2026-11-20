@@ -273,19 +273,26 @@ test("a layout conflict preserves the saved layout and keeps local focus accurat
   expect(persisted.layout).toEqual(state.layout);
 });
 
-test("an ended terminal can be recreated with its keyboard handle intact", async ({
+test("shell exit closes its pane and persists the empty layout after the last exit", async ({
   page,
 }) => {
-  await command(page, "export OLD_SESSION=previous; exit");
-  await page.getByRole("button", { name: "Recreate", exact: true }).click();
-  await expect(page.locator("[data-pane-id]").getByRole("status")).toHaveText(
-    "Connected",
+  await command(page, "export SURVIVOR=alive");
+  await prefix(page, "%");
+  await expect(page.locator("[data-pane-id]")).toHaveCount(2);
+  await expect(
+    page.locator("[data-active='true']").getByRole("status"),
+  ).toHaveText("Connected");
+  await command(page, "exit");
+  await expect(page.locator("[data-pane-id]")).toHaveCount(1);
+  await command(page, "echo SURVIVOR_$SURVIVOR");
+  await expect(page.locator(".xterm-rows")).toContainText("SURVIVOR_alive");
+  await command(page, "exit");
+  await expect(page.locator("[data-pane-id]")).toHaveCount(0);
+  await expect(page.locator("[data-layout-status]")).toContainText(
+    "Layout saved",
   );
-  await command(page, "printf 'RECREATED_%s\\n' \"${OLD_SESSION:-fresh}\"");
-  await expect(page.locator(".xterm-rows")).toContainText("RECREATED_fresh");
-  await command(page, `IFS= read -rsn1 key; printf 'KEY_%d\\n' "'$key"`);
-  await prefix(page, "Control+g");
-  await expect(page.locator(".xterm-rows")).toContainText("KEY_7");
+  await page.reload();
+  await expect(page.locator("[data-pane-id]")).toHaveCount(0);
 });
 
 test("queued layout mutations use each preceding save's revision", async ({

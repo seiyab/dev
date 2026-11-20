@@ -17,14 +17,16 @@ export function useTerminalConnection({
   id,
   active,
   onAuthRequired,
+  onExit,
 }: {
   id: string;
   active: boolean;
   onAuthRequired: () => void;
+  onExit: () => void;
 }) {
   // Parent callbacks and focus can change without recreating the browser connection.
-  const latest = useRef({ active, onAuthRequired });
-  latest.current = { active, onAuthRequired };
+  const latest = useRef({ active, onAuthRequired, onExit });
+  latest.current = { active, onAuthRequired, onExit };
   const handle = useRef<TerminalHandle | null>(null);
   const [ended, setEnded] = useState(false);
   useEffect(() => {
@@ -105,6 +107,7 @@ export function useTerminalConnection({
       if (session.started && !session.running) {
         setEnded(true);
         setStatus("Terminal ended. Recreate it to start a new shell.");
+        latest.current.onExit();
         return;
       }
       setEnded(false);
@@ -138,6 +141,7 @@ export function useTerminalConnection({
           setStatus(
             `Terminal exited (${message.code}). Recreate it to start a shell.`,
           );
+          latest.current.onExit();
         }
       };
       ws.onclose = (event) => {

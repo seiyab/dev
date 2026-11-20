@@ -39,7 +39,7 @@ function TerminalPaneInstance({
     disconnect,
     reconnect,
     recreate,
-  } = useTerminalConnection({ id, active, onAuthRequired });
+  } = useTerminalConnection({ id, active, onAuthRequired, onExit: onClose });
   useEffect(() => {
     register(handle);
     return () => register(null);
