@@ -7,8 +7,8 @@ share
 node_modules/
 dist/
 .workbench/
-workspace/
-!apps/bridge/src/api/routes/workspace/
+/workspace/
+/apps/bridge/workspace/
 .env
 test-results/
 playwright-report/
