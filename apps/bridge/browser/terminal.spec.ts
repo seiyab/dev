@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { once } from "node:events";
-import { startBridge } from "../src/server.js";
+import { startBridge } from "../src/api/server.js";
 
 let bridge: ReturnType<typeof startBridge>;
 let dir: string;

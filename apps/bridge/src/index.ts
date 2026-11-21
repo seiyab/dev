@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { startBridge } from "./server.js";
+import { startBridge } from "./api/server.js";
 
 const port = Number(process.env.WORKBENCH_PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535)

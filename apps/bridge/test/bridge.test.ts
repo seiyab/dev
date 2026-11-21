@@ -8,7 +8,7 @@ import { createServer } from "node:net";
 import { request } from "node:http";
 import { test } from "node:test";
 import { WebSocket } from "ws";
-import { startBridge } from "../src/server.js";
+import { startBridge } from "../src/api/server.js";
 import {
   parseClientMessage,
   type ClientMessage,

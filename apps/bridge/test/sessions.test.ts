@@ -13,8 +13,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import type { WorkspaceState } from "@workbench/protocol";
-import { workspaceStore } from "../src/workspace.js";
-import { startBridge } from "../src/server.js";
+import { workspaceStore } from "../src/api/state/workspace.js";
+import { startBridge } from "../src/api/server.js";
 
 test("legacy workspace migration preserves terminal identities, layout, and revision", () => {
   const dir = mkdtempSync(join(tmpdir(), "wb-migrate-"));
