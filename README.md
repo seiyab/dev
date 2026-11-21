@@ -107,9 +107,32 @@ unless you intend to delete that data.
 The prototype uses separate volumes and configuration from the original
 `compose.yaml`. It does not mount your host projects, SSH agent, agent
 credentials, or Docker socket. It runs as a non-root user with dropped Linux
-capabilities and no privilege escalation. It includes bash, Git, tmux, and
-Neovim; your existing dotfiles and other tools are not migrated yet. Outbound
+capabilities and no privilege escalation. It includes bash, Git, tmux, Neovim,
+lazygit, and Codex CLI, plus the Neovim configuration described below. Outbound
 network access is available; this is not an egress sandbox.
+
+## Container tools
+
+The workbench image includes pinned releases of
+[Neovim 0.12.6](https://github.com/neovim/neovim/releases/tag/v0.12.6),
+[lazygit 0.66.3](https://github.com/jesseduffield/lazygit/releases/tag/v0.66.3), and
+[Codex CLI](https://github.com/openai/codex) (`@openai/codex@0.171.0`). The Neovim
+and lazygit archives are SHA-256 checked for both arm64 and amd64. Git's default
+editor inside the container is `nvim`.
+
+`/home/node/.config/nvim` is a checkout of [seiyab/nv](https://github.com/seiyab/nv),
+pinned to `7a7e3830290bf2b7805de2d0a9cbfa76bee18327`. Its plugin manager installs
+plugins on first launch; allow network access while that completes. Language
+servers and other external tools are managed by the configuration's Mason setup.
+Neovim configuration, plugins, and downloaded tools currently live in the
+container filesystem and reset when the container is recreated. To use a different
+config commit, rebuild with `docker compose -f compose.workbench.yaml build
+--build-arg NVIM_CONFIG_REVISION=<commit>`, then start the updated image.
+
+After rebuilding the image, run `nvim`, `lazygit`, or `codex` from a workbench
+terminal. For Codex authentication, run `codex login --device-auth` inside the
+container. No host credentials are mounted; Codex login state is also local to the
+container and must be renewed after container recreation.
 
 ## Local development
 
