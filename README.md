@@ -180,6 +180,13 @@ reads/writes, filters with `exact: true`, and factory calls with arguments stay
 unchanged. `pnpm exec oxlint --fix apps packages` fixes violations when an
 unshadowed ECQ import is available. Rule integration tests run with `pnpm test`.
 
+`workbench/prefer-mutation-context-client` warns when an explicitly typed
+`QueryClient` parameter is used only inside callbacks of directly returned
+`mutationOptions(...)`. Prefer the callbacks' `context.client` in that case.
+The rule leaves parameters used elsewhere alone and provides no autofix: changing
+factory signatures and callers, or intentionally targeting another query client,
+requires review.
+
 Backend integration tests create temporary tmux servers and exercise real PTYs,
 authentication, upgrade rejection, independent terminals, layout validation and
 revision conflicts, bridge restart, explicit recreation, resize, reconnect, and

@@ -10,6 +10,7 @@ export default defineConfig({
     { name: "preact", specifier: "./scripts/preact-oxlint-plugin.js" },
     "@tanstack/eslint-plugin-query",
     { name: "ecq", specifier: "./scripts/ecq-oxlint-plugin.js" },
+    { name: "workbench", specifier: "./scripts/workbench-oxlint-plugin.js" },
   ],
   overrides: [
     {
@@ -17,6 +18,7 @@ export default defineConfig({
       // Use the preset's plugin rules; keep Oxlint's existing core rule policy.
       rules: {
         ...queryPlugin.configs.recommended.rules,
+        "workbench/prefer-mutation-context-client": "warn",
         "ecq/filter-keys": ["error", { queryModules: ["./api.js"] }],
         ...Object.fromEntries(
           Object.entries(preset.rules)
