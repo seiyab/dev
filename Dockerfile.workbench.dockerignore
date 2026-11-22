@@ -12,3 +12,8 @@ share
 .env*
 test-results
 playwright-report
+
+**/*.pem
+**/*.key
+.broker
+.git-broker

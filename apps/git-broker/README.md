@@ -2,9 +2,10 @@
 
 This is the first stage of the broker design in [DESIGN.md](../../DESIGN.md#github-authentication-and-operations).
 It exercises real Git pushes against a **local test bare repository**, with no
-GitHub credentials or GitHub writes. It is not yet the separate, isolated Compose
-broker service. GitHub App integration, PR operations, and the `box` CLI follow
-this compatibility and policy prototype.
+GitHub credentials or GitHub writes. For the separate Compose service with
+GitHub App authentication, see
+[GitHub publishing setup](GITHUB.md). PR operations and the `box` CLI remain a
+later stage.
 
 ## Try it
 
@@ -50,7 +51,8 @@ pnpm --filter @workbench/git-broker build
 node apps/git-broker/dist/index.js /absolute/path/to/broker.json
 ```
 
-Configuration contains a `port` (zero selects a free port), absolute `stateDir`,
+Local-demo configuration contains a `port` (zero selects a free port), absolute
+`stateDir`,
 `repositories: [{ id, upstream }]`, and `boxes: [{ id, capabilityFile, repositories }]`.
 Repository IDs have the form `owner/repository`; upstreams must be absolute paths
 to trusted, local SHA-1 bare repositories. Aliases cannot share an upstream.
@@ -59,15 +61,15 @@ The demo creates them with mode 0600. The grant derives box identity from the
 capability; supplying a different `boxId` in a request does not change authority.
 Changing grants or revoking a capability currently requires a broker restart.
 
-The service binds only `127.0.0.1`. The helper accepts an HTTP loopback origin,
-reads its capability from `BOX_CAPABILITY_FILE`, and sends it in an Authorization
-header, never a remote URL. Browser-origin requests are rejected. There is no
+The local demo binds only `127.0.0.1`. The helper accepts HTTP on loopback or the
+Compose service name `git-broker`. It reads its capability from
+`BOX_CAPABILITY_FILE` and sends it in an Authorization header, never a remote URL. Browser-origin requests are rejected. There is no
 GitHub credential helper, arbitrary authenticated URL, or generic proxy endpoint.
 
 Run one broker process per state directory. Keep its configuration, state, and
-upstream separate from developer-controlled checkouts. Process/container isolation
-and secret provisioning will be implemented in the next stage; this prototype
-does not make a local process inaccessible to other processes under the same user.
+upstream separate from developer-controlled checkouts. The local demo does not
+make a process inaccessible to other processes under the same user. Use the separate Compose deployment for the development/broker
+container boundary; do not use the local demo to hold GitHub credentials.
 
 ## How pushes work
 
@@ -118,3 +120,5 @@ BOX_TEST_LAZYGIT=/path/to/lazygit pnpm test
 
 That test is skipped when lazygit is unavailable. The workbench-pinned lazygit
 release is the intended compatibility target.
+GitHub unit tests exercise JWT signing, token scope/refresh, repository identity,
+credential handling, and secret provisioning without using a live App key.

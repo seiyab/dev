@@ -24,7 +24,8 @@ ARG NVIM_CONFIG_REVISION=7a7e3830290bf2b7805de2d0a9cbfa76bee18327
 RUN git clone https://github.com/seiyab/nv.git /home/node/.config/nvim \
     && git -C /home/node/.config/nvim checkout --detach "$NVIM_CONFIG_REVISION"
 
-ENV WORKBENCH_HOST=0.0.0.0 \
+ENV PATH="/opt/workbench/apps/git-broker/bin:${PATH}" \
+    WORKBENCH_HOST=0.0.0.0 \
     WORKBENCH_STATE_DIR=/home/node/.workbench \
     WORKBENCH_WORKSPACE_DIR=/home/node/workspace \
     WORKBENCH_WEB_ROOT=/opt/workbench/apps/web/dist

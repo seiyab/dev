@@ -13,7 +13,7 @@ if (!isRepositoryId(repository))
 const base = new URL(process.env.BOX_BROKER_URL ?? "");
 if (
   base.protocol !== "http:" ||
-  base.hostname !== "127.0.0.1" ||
+  !["127.0.0.1", "git-broker"].includes(base.hostname) ||
   base.username ||
   base.password ||
   base.pathname !== "/" ||
@@ -21,7 +21,7 @@ if (
   base.hash
 )
   throw new Error(
-    "Prototype BOX_BROKER_URL must be an http://127.0.0.1:port origin",
+    "BOX_BROKER_URL must be an HTTP origin on 127.0.0.1 or git-broker",
   );
 const capabilityFile = process.env.BOX_CAPABILITY_FILE;
 if (!capabilityFile) throw new Error("BOX_CAPABILITY_FILE is required");

@@ -201,8 +201,9 @@ not be described as enforcing the future GitHub policy.
 ## GitHub authentication and operations
 
 Status: agreed design. The [local publishing prototype](apps/git-broker/README.md)
-is implemented; the isolated Compose service, GitHub App authentication, and PR
-operations are not implemented yet. GitHub authentication precedes
+and isolated Compose service with GitHub App authentication are implemented;
+PR operations are not implemented yet. Live App/repository validation is required
+when provisioning the user's installation. GitHub authentication precedes
 worktree-backed sessions. GitHub is the only initial provider, and private
 clone/fetch is deferred. Public clone/fetch continues directly against GitHub.
 
@@ -306,7 +307,8 @@ compatibility project.
    forbidden refs, unowned existing branches, history rewrites, and unsupported
    operations fail clearly. Direct broker requests must face the same policy as
    helper requests. Exercise upstream rejection and concurrent updates.
-2. Add the separate Compose broker service, box provisioning/revocation, trusted
+2. Add the separate Compose broker service (implemented; see the
+   [GitHub setup guide](apps/git-broker/GITHUB.md)), box provisioning/revocation, trusted
    repository/base-branch grants, and GitHub App token handling. Configure secrets
    outside the development image and verify that repository code cannot read them
    or change policy. Test real pushes on a designated repository. Permission

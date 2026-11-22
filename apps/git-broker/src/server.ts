@@ -3,7 +3,6 @@ import {
   appendFileSync,
   mkdirSync,
   readFileSync,
-  realpathSync,
   renameSync,
   writeFileSync,
 } from "node:fs";
@@ -20,12 +19,9 @@ import {
   type PushRequest,
 } from "./protocol.js";
 
-export interface BrokerConfig {
-  port: number;
-  stateDir: string;
-  repositories: { id: string; upstream: string }[];
-  boxes: { id: string; capabilityFile: string; repositories: string[] }[];
-}
+import type { BrokerConfig } from "./config.js";
+import { createUpstreams } from "./upstreams.js";
+export type { BrokerConfig } from "./config.js";
 interface Ownership {
   boxId: string;
   status: "pending" | "owned";
@@ -46,38 +42,19 @@ export async function startGitBroker(config: BrokerConfig) {
     throw new Error("Invalid broker configuration");
   mkdirSync(config.stateDir, { recursive: true, mode: 0o700 });
   const git = brokerGit(config.stateDir);
-  const repositories = new Map<string, string>();
-  for (const repository of config.repositories) {
-    if (
-      !repository ||
-      !isRepositoryId(repository.id) ||
-      repositories.has(repository.id) ||
-      typeof repository.upstream !== "string" ||
-      !isAbsolute(repository.upstream)
-    )
-      throw new Error("Invalid repository grant");
-    const upstream = realpathSync(repository.upstream);
-    if (
-      (await git([
-        "--git-dir",
-        upstream,
-        "rev-parse",
-        "--is-bare-repository",
-      ])) !== "true" ||
-      (await git([
-        "--git-dir",
-        upstream,
-        "rev-parse",
-        "--show-object-format",
-      ])) !== "sha1"
-    )
-      throw new Error(
-        "Prototype upstreams must be local SHA-1 bare repositories",
-      );
-    if ([...repositories.values()].includes(upstream))
-      throw new Error("Repository aliases must not share an upstream");
-    repositories.set(repository.id, upstream);
-  }
+  if (
+    config.hostname !== undefined &&
+    !["127.0.0.1", "0.0.0.0"].includes(config.hostname)
+  )
+    throw new Error("Invalid broker bind address");
+  if (
+    config.allowedHost !== undefined &&
+    !/^[a-z0-9.-]+:[0-9]{1,5}$/.test(config.allowedHost)
+  )
+    throw new Error("Invalid broker host");
+  if (config.hostname === "0.0.0.0" && !config.allowedHost)
+    throw new Error("A network broker requires an explicit allowedHost");
+  const repositories = await createUpstreams(config);
   const boxes = config.boxes.map((box) => {
     if (
       !box ||
@@ -184,9 +161,14 @@ export async function startGitBroker(config: BrokerConfig) {
   const app = new Hono<{ Variables: { box: Box } }>();
   let port = config.port;
   app.use("*", async (c, next) => {
-    if (c.req.header("host") !== `127.0.0.1:${port}` || c.req.header("origin"))
+    if (
+      c.req.header("host") !== (config.allowedHost ?? `127.0.0.1:${port}`) ||
+      c.req.header("origin")
+    )
       return c.text("Unexpected host or browser origin", 403);
     c.header("Cache-Control", "no-store");
+    if (c.req.path === "/health" && c.req.method === "GET")
+      return c.json({ ok: true });
     const authorization = c.req.header("authorization") ?? "";
     const token = Buffer.from(
       authorization.startsWith("Bearer ") ? authorization.slice(7) : "",
@@ -208,14 +190,12 @@ export async function startGitBroker(config: BrokerConfig) {
       return c.text("Repository is not granted to this box", 403);
     await next();
   });
-  api.get("/", async (c) =>
-    c.json({
-      refs: await remoteRefs(
-        git,
-        repositories.get(`${c.req.param("owner")}/${c.req.param("repo")}`)!,
-      ),
-    }),
-  );
+  api.get("/", async (c) => {
+    const upstream = repositories.get(
+      `${c.req.param("owner")}/${c.req.param("repo")}`,
+    )!;
+    return c.json({ refs: await remoteRefs(upstream.git, upstream.url) });
+  });
   api.post("/push", bodyLimit({ maxSize: 12 * 1024 * 1024 }), async (c) => {
     let value: unknown;
     try {
@@ -239,7 +219,7 @@ export async function startGitBroker(config: BrokerConfig) {
     }
     return serialize(id, async () => {
       try {
-        const refs = await remoteRefs(git, upstream);
+        const refs = await remoteRefs(upstream.git, upstream.url);
         const current =
           refs.find((ref) => ref.name === request.ref)?.oid ?? null;
         const key = `${id}\0${request.ref}`;
@@ -257,9 +237,9 @@ export async function startGitBroker(config: BrokerConfig) {
         if (current !== request.expectedOid)
           throw new BrokerError("Upstream changed; fetch and retry", 409);
         const prepared = await preparePush(
-          git,
+          upstream.git,
           config.stateDir,
-          upstream,
+          upstream.url,
           request,
         );
         try {
@@ -327,7 +307,7 @@ export async function startGitBroker(config: BrokerConfig) {
   );
   const server = serve({
     fetch: app.fetch,
-    hostname: "127.0.0.1",
+    hostname: config.hostname ?? "127.0.0.1",
     port: config.port,
   });
   if ("requestTimeout" in server) server.requestTimeout = 30_000;

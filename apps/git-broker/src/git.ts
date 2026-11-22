@@ -12,7 +12,26 @@ import {
 const exec = promisify(execFile);
 
 /** Broker Git never inherits developer Git configuration, hooks, or credentials. */
-export function brokerGit(home: string) {
+export interface GitAuthentication {
+  url: string;
+  token: () => Promise<string>;
+  invalidate: () => void;
+}
+export type GitRunner = (
+  file: string,
+  args: string[],
+  options: {
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    timeout: number;
+    maxBuffer: number;
+  },
+) => Promise<{ stdout: string }>;
+export function brokerGit(
+  home: string,
+  authentication?: GitAuthentication,
+  run: GitRunner = exec,
+) {
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH,
     HOME: home,
@@ -20,21 +39,49 @@ export function brokerGit(home: string) {
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_TERMINAL_PROMPT: "0",
-    GIT_ALLOW_PROTOCOL: "file",
+    GIT_ALLOW_PROTOCOL: authentication ? "file:https" : "file",
     GIT_NO_REPLACE_OBJECTS: "1",
   };
   return async (args: string[], cwd = home) => {
-    const result = await exec(
-      "git",
-      ["-c", "core.hooksPath=/dev/null", "-c", "init.templateDir=", ...args],
-      {
-        cwd,
-        env,
-        timeout: 20_000,
-        maxBuffer: 1024 * 1024,
-      },
-    );
-    return result.stdout.trim();
+    const authenticated =
+      authentication &&
+      ["ls-remote", "fetch", "push"].includes(args[0]) &&
+      args.includes(authentication.url);
+    const operationEnv = { ...env };
+    if (authenticated) {
+      const token = await authentication.token();
+      operationEnv.GIT_CONFIG_COUNT = "1";
+      operationEnv.GIT_CONFIG_KEY_0 = `http.${authentication.url}.extraHeader`;
+      operationEnv.GIT_CONFIG_VALUE_0 = `Authorization: Basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`;
+    }
+    try {
+      const result = await run(
+        "git",
+        [
+          "-c",
+          "core.hooksPath=/dev/null",
+          "-c",
+          "init.templateDir=",
+          "-c",
+          "credential.helper=",
+          "-c",
+          "http.followRedirects=false",
+          "-c",
+          "http.sslVerify=true",
+          ...args,
+        ],
+        {
+          cwd,
+          env: operationEnv,
+          timeout: 20_000,
+          maxBuffer: 1024 * 1024,
+        },
+      );
+      return result.stdout.trim();
+    } catch (error) {
+      if (authenticated) authentication.invalidate();
+      throw error;
+    }
   };
 }
 export type BrokerGit = ReturnType<typeof brokerGit>;

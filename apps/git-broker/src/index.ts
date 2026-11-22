@@ -9,7 +9,7 @@ if (!file)
 const broker = await startGitBroker(
   JSON.parse(readFileSync(file, "utf8")) as BrokerConfig,
 );
-console.log(`Local Git broker prototype listening at ${broker.url}`);
+console.log(`Git publishing broker listening at ${broker.url}`);
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, () => {
     void broker.close();

@@ -11,6 +11,7 @@
     "hono": "4.13.18"
   },
   "devDependencies": {
-    "node-pty": "1.1.0"
+    "node-pty": "1.1.0",
+    "esbuild": "0.25.12"
   }
 }

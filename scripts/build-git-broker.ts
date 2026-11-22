@@ -1,4 +1,4 @@
-import { build } from "../apps/bridge/node_modules/esbuild/lib/main.js";
+import { build } from "../apps/git-broker/node_modules/esbuild/lib/main.js";
 
 await build({
   absWorkingDir: new URL("..", import.meta.url).pathname,
@@ -11,5 +11,4 @@ await build({
   platform: "node",
   target: "node22",
   format: "esm",
-  external: ["hono", "hono/*", "@hono/node-server", "@hono/node-server/*"],
 });

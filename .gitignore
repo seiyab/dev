@@ -12,3 +12,8 @@ dist/
 .env
 test-results/
 playwright-report/
+
+.broker/
+.git-broker/
+*.pem
+*.key

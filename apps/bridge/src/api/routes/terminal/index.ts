@@ -95,7 +95,8 @@ export function registerTerminalWebSocket(
             socket?.terminate();
             cleanup();
           });
-          // Do not pass the bridge's configuration or authentication environment into shells.
+          // Only terminal and scoped box connection settings enter shells; GitHub
+          // credentials and bridge authentication settings remain excluded.
           const env: Record<string, string> = {};
           for (const name of [
             "PATH",
@@ -104,6 +105,8 @@ export function registerTerminalWebSocket(
             "LOGNAME",
             "LANG",
             "LC_ALL",
+            "BOX_BROKER_URL",
+            "BOX_CAPABILITY_FILE",
             "TZ",
           ]) {
             if (process.env[name]) env[name] = process.env[name]!;

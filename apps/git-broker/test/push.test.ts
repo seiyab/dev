@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { once } from "node:events";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  writeFile,
+  copyFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -111,6 +119,11 @@ const pushPath = "/v1/repos/demo/repo/push";
 test("ordinary pushes create owned branches, set upstream tracking, and preserve public fetch", async () => {
   const f = await fixture();
   try {
+    assert.ok(
+      (await f.git(["ls-remote", "box::demo/repo"])).includes(
+        "refs/heads/main",
+      ),
+    );
     await f.git(["switch", "-c", "box/demo/topic"]);
     await f.commit("first");
     await f.git(["push", "-u", "origin", "HEAD"]);
@@ -431,6 +444,69 @@ test(
       );
     } finally {
       terminal?.kill();
+      await f.close();
+    }
+  },
+);
+
+test(
+  "bundled broker starts without node_modules and health reveals no grants",
+  { timeout: 10_000 },
+  async () => {
+    const f = await fixture();
+    let child: ReturnType<typeof spawn> | undefined;
+    try {
+      const entry = join(f.directory, "broker.mjs");
+      await copyFile(resolve("apps/git-broker/dist/index.js"), entry);
+      const policy = join(f.directory, "policy.json");
+      await writeFile(
+        policy,
+        JSON.stringify({
+          ...f.config,
+          stateDir: join(f.directory, "standalone-state"),
+        }),
+      );
+      child = spawn(process.execPath, [entry, policy], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let output = "";
+      let errors = "";
+      child.stdout?.on("data", (data) => {
+        output += data.toString();
+      });
+      child.stderr?.on("data", (data) => {
+        errors += data.toString();
+      });
+      const deadline = Date.now() + 5_000;
+      while (
+        !output.includes("http://") &&
+        Date.now() < deadline &&
+        child.exitCode === null
+      )
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      const url = /http:\/\/127\.0\.0\.1:\d+/.exec(output)?.[0];
+      assert.ok(url, "Standalone startup failed: " + errors);
+      const health = await fetch(url + "/health");
+      assert.deepEqual(await health.json(), { ok: true });
+      assert.equal((await fetch(url + "/v1/repos/demo/repo")).status, 401);
+      const token = (
+        await readFile(f.config.boxes[0].capabilityFile, "utf8")
+      ).trim();
+      const response = await fetch(url + "/v1/repos/demo/repo", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      assert.equal(response.status, 200);
+      assert.ok(
+        (await response.json()).refs.some(
+          (ref: { name: string }) => ref.name === "refs/heads/main",
+        ),
+      );
+    } finally {
+      if (child && child.exitCode === null) {
+        const ended = once(child, "exit");
+        child.kill("SIGTERM");
+        await ended;
+      }
       await f.close();
     }
   },

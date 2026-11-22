@@ -1,0 +1,62 @@
+services:
+  workbench:
+    environment:
+      BOX_BROKER_URL: http://git-broker:3180
+      BOX_CAPABILITY_FILE: /run/secrets/box-capability
+    secrets:
+      - box-capability
+    networks:
+      - default
+      - box-broker
+    depends_on:
+      git-broker:
+        condition: service_healthy
+
+  git-broker:
+    build:
+      context: .
+      dockerfile: Dockerfile.git-broker
+    init: true
+    secrets:
+      - broker-policy
+      - github-app-key
+      - box-capability
+    volumes:
+      - github-broker-state:/home/node/.git-broker
+    networks:
+      - box-broker
+      - github-egress
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3180/health',{headers:{Host:'git-broker:3180'}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+secrets:
+  broker-policy:
+    file: ${WORKBENCH_BROKER_DIR:?Run broker provisioning and set WORKBENCH_BROKER_DIR}/policy.json
+  github-app-key:
+    file: ${WORKBENCH_BROKER_DIR:?Run broker provisioning and set WORKBENCH_BROKER_DIR}/github-app.pem
+  box-capability:
+    file: ${WORKBENCH_BROKER_DIR:?Run broker provisioning and set WORKBENCH_BROKER_DIR}/box-capability
+
+volumes:
+  github-broker-state:
+
+networks:
+  box-broker:
+    internal: true
+  github-egress:

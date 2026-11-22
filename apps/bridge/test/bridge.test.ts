@@ -465,3 +465,43 @@ test(
     }
   },
 );
+
+test(
+  "shells receive scoped broker connection settings but not GitHub credentials",
+  { timeout: 15_000 },
+  async () => {
+    const values: Record<string, string> = {
+      BOX_BROKER_URL: "http://git-broker:3180",
+      BOX_CAPABILITY_FILE: "/run/secrets/box-capability",
+      GH_TOKEN: "must-not-reach-shell",
+      GITHUB_TOKEN: "must-not-reach-shell",
+    };
+    const previous = Object.fromEntries(
+      Object.keys(values).map((key) => [key, process.env[key]]),
+    );
+    let f: Awaited<ReturnType<typeof fixture>> | undefined;
+    try {
+      Object.assign(process.env, values);
+      f = await fixture();
+      const terminal = await attach(f);
+      terminal.send({
+        type: "input",
+        data: 'printf \'BROKER_%s|%s|%s|%s\\n\' "$BOX_BROKER_URL" "$BOX_CAPABILITY_FILE" "${GH_TOKEN-unset}" "${GITHUB_TOKEN-unset}"\r',
+      });
+      await terminal.waitFor(() =>
+        terminal
+          .output()
+          .includes(
+            "BROKER_http://git-broker:3180|/run/secrets/box-capability|unset|unset",
+          ),
+      );
+      await terminal.detach();
+    } finally {
+      await f?.close();
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  },
+);

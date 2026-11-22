@@ -17,7 +17,8 @@
     "test": "pnpm --filter @workbench/git-broker build && tsx --test apps/bridge/test/*.test.ts apps/git-broker/test/*.test.ts scripts/*.test.js",
     "test:browser": "playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build",
-    "broker:demo": "pnpm --filter @workbench/git-broker build && tsx scripts/git-broker-demo.ts"
+    "broker:demo": "pnpm --filter @workbench/git-broker build && tsx scripts/git-broker-demo.ts",
+    "broker:provision": "tsx scripts/provision-github-broker.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
