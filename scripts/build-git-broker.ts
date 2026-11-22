@@ -5,6 +5,7 @@ await build({
   entryPoints: [
     "apps/git-broker/src/index.ts",
     "apps/git-broker/src/helper.ts",
+    "apps/git-broker/src/provision-container.ts",
   ],
   outdir: "apps/git-broker/dist",
   bundle: true,

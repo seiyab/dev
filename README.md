@@ -140,13 +140,15 @@ container and must be renewed after container recreation.
 
 ## Git publishing
 
-A credential-free prototype now exercises normal `git push` and lazygit through
-a scoped broker against a local test upstream. Run `pnpm broker:demo` from this
-checkout to try it; see [the prototype guide](apps/git-broker/README.md).
-An optional separate Compose broker now supports GitHub App authentication and
-scoped pushes to selected public repositories. See [GitHub publishing setup](apps/git-broker/GITHUB.md)
-for provisioning, the Compose overlay, and a test push. The default workbench
-still starts without GitHub credentials. PR creation is a later step.
+Use [GitHub publishing setup](apps/git-broker/GITHUB.md) to enable scoped pushes
+to selected public repositories through a separate GitHub App broker. Provisioning
+and startup run through Docker Compose; host Node, pnpm, Git, and build toolchains
+are not required. The default workbench still starts without GitHub credentials.
+PR creation is a later step.
+
+An optional [local prototype for contributors](apps/git-broker/README.md) exercises
+Git and lazygit against a test upstream without GitHub credentials. Its pnpm
+commands are for repository development, not normal workbench setup.
 
 ## Local development
 

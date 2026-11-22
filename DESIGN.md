@@ -9,6 +9,8 @@ and richer GUI panes. Keep existing terminal applications useful while migrating
 individual workflows to GUI incrementally.
 
 Development runs in Docker Compose on Docker Desktop on the user's computer.
+Normal setup and broker provisioning require only Docker/Compose and standard
+host shell utilities; do not require host Node, pnpm, Git, or build toolchains.
 Protecting the host and limiting credentials take priority; reproducible builds
 also matter. Apple container framework support is outside scope.
 

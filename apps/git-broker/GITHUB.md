@@ -28,13 +28,14 @@ nor a GitHub token inside the workbench is required.
 ## Provision outside the repository
 
 On your Docker Desktop host, create an input JSON file, for example
-`~/.config/dev-workbench-broker-input.json`:
+`~/.config/dev-workbench-broker-input.json`. Only Docker with Compose and standard
+host shell utilities are required; Node, pnpm, Git, and build tools run inside
+containers:
 
 ```json
 {
   "boxId": "local",
   "appId": "REPLACE_WITH_APP_OR_CLIENT_ID",
-  "privateKeyFile": "/absolute/path/to/the-app-private-key.pem",
   "repositories": [
     {
       "id": "OWNER/REPO",
@@ -45,11 +46,25 @@ On your Docker Desktop host, create an input JSON file, for example
 }
 ```
 
-From the repo root, with its Node/pnpm toolchain installed:
+From the repo root, set the paths and your host user/group IDs (macOS or Linux):
 
 ```sh
-pnpm broker:provision "$HOME/.config/dev-workbench-broker-input.json" "$HOME/.config/dev-workbench-broker"
+export WORKBENCH_BROKER_INPUT="$HOME/.config/dev-workbench-broker-input.json"
+export WORKBENCH_GITHUB_APP_KEY="/absolute/path/to/the-app-private-key.pem"
+export WORKBENCH_BROKER_DIR="$HOME/.config/dev-workbench-broker"
+export WORKBENCH_UID="$(id -u)"
+export WORKBENCH_GID="$(id -g)"
+mkdir -p "$WORKBENCH_BROKER_DIR"
+chmod 700 "$WORKBENCH_BROKER_DIR"
+docker compose -f compose.provision.yaml run --build --rm broker-provision
 ```
+
+The one-off provisioner runs as your host UID/GID, has no network access or Linux
+capabilities, and has a read-only root filesystem. Its only host mounts are the
+input JSON and App key (read-only) and the output directory (writable). It does not
+mount your home directory or source checkout, and does not receive the Docker
+socket. The key path is selected by the mount, so the JSON does not need a host
+`privateKeyFile` field.
 
 This validates and copies the key, generates a random scoped box capability, and
 writes a broker policy. The output directory must be private (0700), owned by you,
@@ -125,7 +140,9 @@ push can have an uncertain upstream outcome: fetch and inspect before retrying.
 
 ## Update grants, revoke, and rotate
 
-Edit the provisioning input and rerun provisioning to change repository grants;
+Keep the provisioning environment variables set (or export them again in a new
+shell). Edit the input and rerun the same Docker provisioning command to change
+repository grants;
 an empty repositories list revokes all publishing grants. Recreate **both** services
 with the overlay after changing policy, key, or capability files. Compose file
 mounts can retain the old inode after atomic replacement, so a process restart
@@ -134,7 +151,7 @@ alone is insufficient.
 To invalidate a copied capability while keeping the same box identity:
 
 ```sh
-pnpm broker:provision "$HOME/.config/dev-workbench-broker-input.json" "$HOME/.config/dev-workbench-broker" --rotate
+docker compose -f compose.provision.yaml run --build --rm broker-provision --rotate
 docker compose -f compose.workbench.yaml -f compose.github.yaml up --force-recreate -d
 ```
 

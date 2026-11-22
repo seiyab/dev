@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { GitHubApp } from "../src/github.js";
 import { brokerGit, type GitRunner } from "../src/git.js";
+import { provisionMountedBroker } from "../src/provision-mounted.js";
 import { provisionGitHubBroker } from "../src/provision.js";
 import { createUpstreams } from "../src/upstreams.js";
 
@@ -290,5 +291,46 @@ test("real Git receives the scoped auth header and refuses redirects", async () 
     );
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("mounted provisioning uses the explicitly mounted key and output, preserves capability, and rotates", async () => {
+  const f = await fixture();
+  try {
+    const input = join(f.directory, "input.json");
+    const output = join(f.directory, "output");
+    await writeFile(
+      input,
+      JSON.stringify({
+        boxId: "docker",
+        appId: "123",
+        repositories: [repository],
+        privateKeyFile: "/unmounted/host/path.pem",
+        destination: "/unmounted/output",
+      }),
+    );
+    provisionMountedBroker(input, f.key, output);
+    assert.equal(await readFile(join(output, "github-app.pem"), "utf8"), pem);
+    const capability = await readFile(join(output, "box-capability"), "utf8");
+    provisionMountedBroker(input, f.key, output);
+    assert.equal(
+      await readFile(join(output, "box-capability"), "utf8"),
+      capability,
+    );
+    provisionMountedBroker(input, f.key, output, true);
+    assert.notEqual(
+      await readFile(join(output, "box-capability"), "utf8"),
+      capability,
+    );
+    const policy = JSON.parse(
+      await readFile(join(output, "policy.json"), "utf8"),
+    );
+    assert.equal(policy.boxes[0].id, "docker");
+    assert.equal(
+      policy.githubApp.privateKeyFile,
+      "/run/secrets/github-app-key",
+    );
+  } finally {
+    await f.close();
   }
 });
