@@ -62,6 +62,20 @@ export function SessionDialog({
     setView("create-session");
   }
   function handleKeyDown(event: KeyboardEvent) {
+    const controlBracket =
+      event.key === "[" &&
+      event.ctrlKey &&
+      !event.altKey &&
+      !event.metaKey &&
+      !event.shiftKey;
+    if (controlBracket && !event.isComposing) {
+      event.preventDefault();
+      if (busy) return;
+      if (event.target === filter.current) focusSession();
+      else close();
+      return;
+    }
+
     if (
       view !== "sessions" ||
       busy ||

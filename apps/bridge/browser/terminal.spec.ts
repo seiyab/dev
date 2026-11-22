@@ -458,6 +458,13 @@ test("session picker supports keyboard navigation, search, and creation", async 
   await page.keyboard.press("Escape");
   await expect(created).toBeFocused();
   await page.keyboard.press("/");
+  await expect(filter).toBeFocused();
+  await page.keyboard.press("Control+[");
+  await expect(created).toBeFocused();
+  await page.keyboard.press("Control+[");
+  await expect(picker).toHaveCount(0);
+  await prefix(page, "s");
+  await page.keyboard.press("/");
   await filter.fill("Default");
   await page.keyboard.press("Enter");
   await expect(picker).toHaveCount(0);

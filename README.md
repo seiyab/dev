@@ -77,7 +77,8 @@ Use **Ctrl-g s** to switch or manage sessions. Use **Create session** in the com
 palette (**Ctrl-g p**) or session picker to supply a name and an existing directory.
 In the picker, press **k** or **j** to move up or down and **Enter** to open the
 focused session. Press **/** to search and **n** to open the create form.
-From search, **Enter** opens the first match and **Escape** returns to the list.
+From search, **Enter** opens the first match. **Escape** or **Ctrl-[** returns to
+the list from search and closes the picker from the list.
 Relative directories resolve from the configured workspace root (`/home/node/workspace`
 in Compose); absolute directories must also be inside that root. The workbench
 does not create directories or Git worktrees. New terminals start in this directory;
