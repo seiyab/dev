@@ -198,23 +198,127 @@ data. Reproducibility does not require preserving container processes across
 rebuilds. The existing authenticated Git workflow remains transitional and must
 not be described as enforcing the future GitHub policy.
 
-## Later authenticated operations
+## GitHub authentication and operations
 
-Use a separate broker for authenticated operations. The selected policy is
-approved repositories and agent-owned branches. A workspace gets an explicitly
-assigned branch; a matching name prefix alone does not establish ownership.
+Status: agreed design. The [local publishing prototype](apps/git-broker/README.md)
+is implemented; the isolated Compose service, GitHub App authentication, and PR
+operations are not implemented yet. GitHub authentication precedes
+worktree-backed sessions. GitHub is the only initial provider, and private
+clone/fetch is deferred. Public clone/fetch continues directly against GitHub.
 
-Expose narrow operations such as publishing a snapshot to the assigned branch
-and creating a PR against an allowed base. Initially disallow branch deletion,
-force-push, merge, and repository administration. Resolve repository identity
-from trusted configuration and validate every request independently of agent
-instructions.
+### Trust boundary and identity
 
-A GitHub App is the preferred credential source. Repository permissions and
-short-lived tokens complement broker enforcement; they do not by themselves
-establish the desired branch ownership policy. Do not execute untrusted Git
-hooks, helpers, or repository configuration in the credential-bearing broker.
-Private repository reads need an explicit authenticated path as well.
+Run a credential broker as a separate Compose service outside the development
+container. Only the broker receives the GitHub App private key and installation
+credentials. Its policy and credential storage must not be mounted into the
+development container or shared with its writable project/state volumes. Neither
+service receives a Docker socket. Broker policy is managed outside the development
+container; the terminal bridge and work-session metadata cannot grant permissions.
+
+The development container authenticates to the broker with a scoped capability.
+This is authority that container code can exercise or copy, even though it is not
+a GitHub credential. Assign a stable box identity and its repository grants from
+trusted configuration; do not trust a caller-supplied box ID. Support revoking the
+box capability independently of the GitHub App credentials. Agent and human
+commands inside the same container share this authority. A work session is not a
+separate security principal.
+
+Use a GitHub App installed only on selected repositories. Installation tokens
+stay in the broker, have bounded lifetimes, and use the permissions needed for
+Git pushes and PR creation. App-authenticated PRs are attributed to the App/bot;
+this is accepted. A user can create a PR in the GitHub browser UI when personal
+attribution is preferred. Git commit authorship remains separate.
+
+### Branch and operation policy
+
+Each box receives a namespace such as `box/<box-id>/<topic>` on each approved
+repository. It may create branches automatically within that namespace; approval
+for every new branch is not required. The broker records branch ownership when
+creating one. A matching prefix on an existing remote branch does not establish
+ownership: adopting an existing branch requires a trusted administrative action.
+The same namespace applies whether a human or an agent wrote the commits.
+
+Initial authenticated operations are:
+
+- Create a branch in the assigned namespace and push fast-forward updates to
+  branches recorded as belonging to that box.
+- Create a PR from an owned branch to an explicitly allowed base branch.
+- Provide selected issue/PR reads through the broker API as CLI support is added.
+
+Reject branch deletion, non-fast-forward updates, tag writes, merges, and
+repository administration. Evaluate actual destination refs and commit ancestry
+at the broker, independently of client flags, local branch names, or agent
+instructions. A force flag must not authorize a history rewrite. Protect against
+concurrent upstream updates so a stale check cannot lead to an overwrite.
+Repository identity resolves through trusted grants; requests cannot select
+arbitrary authenticated URLs. GitHub App repository permissions complement this
+policy but do not express the branch-ownership restrictions themselves.
+
+### Git and lazygit integration
+
+Keep the normal public HTTPS fetch URL and configure a separate push URL using
+Git's remote-helper mechanism. A container-side `git-remote-box` helper connects
+to the broker. Normal commands such as `git push -u origin HEAD` should continue
+to work, including when invoked by lazygit.
+
+```text
+Development container                 Broker                 GitHub
+ git / lazygit -> git-remote-box  ->  validate + push  ->  approved repository
+ box CLI / future MCP adapter    ->  operation API    ->  GitHub API
+```
+
+The helper transfers proposed commits and ref updates, not GitHub tokens. Treat
+it as an untrusted client: the broker validates the received Git objects,
+repository grant, destination ref, ownership, and permitted update itself. Local
+Git configuration and helper changes cannot widen the broker's authority.
+
+Use broker-controlled Git storage and configuration. Do not execute project Git
+hooks, credential helpers, or repository configuration in the broker. Bound
+incoming transfers and temporary storage. Return success only after GitHub accepts
+the operation; copying data to the broker is not a successful push. Surface
+upstream rejections and uncertain outcomes honestly. A general HTTP interception
+proxy is outside the initial design.
+
+Remote-helper compatibility, tracking/upstream updates, and lazygit behavior need
+a prototype before committing to the final transfer implementation. Start with
+one branch update per push and reject unsupported multi-ref operations explicitly
+rather than silently applying only part of a request.
+
+### GitHub command interfaces
+
+Provide one narrow, operation-specific broker HTTP API and a small `box` CLI.
+Start with `box pr create`, `box pr view`, and `box issue view`; provide human-readable
+output and `--json` for scripts and agents. Both humans and coding agents use the
+same commands and policy. CLI commands must not accept arbitrary authenticated
+HTTP destinations or unrestricted API paths.
+
+MCP can be added later as a thin adapter to the same operations and authorization.
+Authenticated use of the actual `gh` command is deferred. Do not give it GitHub
+tokens inside the container, and do not build a partial replacement pretending to
+be `gh`. Supporting actual `gh` through a restricted API proxy would be a separate
+compatibility project.
+
+### Implementation sequence and acceptance
+
+1. Prototype `git-remote-box` and broker-side validation against a local test
+   upstream, without GitHub credentials (implemented as the local prototype). Demonstrate branch creation, subsequent
+   fast-forward push, upstream tracking, and ordinary lazygit push. Confirm that
+   forbidden refs, unowned existing branches, history rewrites, and unsupported
+   operations fail clearly. Direct broker requests must face the same policy as
+   helper requests. Exercise upstream rejection and concurrent updates.
+2. Add the separate Compose broker service, box provisioning/revocation, trusted
+   repository/base-branch grants, and GitHub App token handling. Configure secrets
+   outside the development image and verify that repository code cannot read them
+   or change policy. Test real pushes on a designated repository. Permission
+   denials must be visible in the terminal and lazygit; credentials must not appear
+   in responses or logs.
+3. Add the narrow GitHub API operations and `box` CLI, beginning with PR creation
+   and issue/PR reads. Validate the head's repository and recorded box ownership,
+   the allowed base, and App/bot attribution. Record operation metadata for audit
+   without storing credential values or terminal contents.
+4. Add MCP, more authenticated operations, private reads, or work-session GUI
+   integration only when needed. Worktree-backed sessions can build on the stable
+   box/branch policy once the publishing path works.
 
 ## Delivery plan
 
@@ -224,7 +328,8 @@ Private repository reads need an explicit authenticated path as well.
    resize, bounded output handling, and tmux attachment.
 3. Add two-pane composition, prefix commands, tab and layout persistence,
    reconnect, detached-terminal discovery, and controller takeover.
-4. Implement and validate scoped GitHub publishing as a separate milestone.
+4. Implement and validate broker-backed GitHub publishing and the `box` CLI
+   following the sequence above, before worktree-backed sessions.
 5. Add a useful GUI pane, such as diff review or task status, and shared context.
 
 ## Prototype acceptance criteria

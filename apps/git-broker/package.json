@@ -1,0 +1,16 @@
+{
+  "name": "@workbench/git-broker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node --experimental-strip-types ../../scripts/build-git-broker.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.8",
+    "hono": "4.13.18"
+  },
+  "devDependencies": {
+    "node-pty": "1.1.0"
+  }
+}

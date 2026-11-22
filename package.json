@@ -8,15 +8,16 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter './apps/*' dev",
-    "build": "pnpm --filter @workbench/web build && pnpm --filter @workbench/bridge build",
+    "build": "pnpm --filter @workbench/web build && pnpm --filter @workbench/bridge build && pnpm --filter @workbench/git-broker build",
     "start": "pnpm --filter @workbench/bridge start",
     "typecheck": "tsgo --noEmit",
     "lint": "oxlint apps packages",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "tsx --test apps/bridge/test/*.test.ts scripts/*.test.js",
+    "test": "pnpm --filter @workbench/git-broker build && tsx --test apps/bridge/test/*.test.ts apps/git-broker/test/*.test.ts scripts/*.test.js",
     "test:browser": "playwright test",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build"
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build",
+    "broker:demo": "pnpm --filter @workbench/git-broker build && tsx scripts/git-broker-demo.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",

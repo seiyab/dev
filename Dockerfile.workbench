@@ -14,7 +14,7 @@ WORKDIR /opt/workbench
 COPY --chown=node:node package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.json ./
 COPY --chown=node:node apps ./apps
 COPY --chown=node:node packages ./packages
-COPY --chown=node:node scripts/build-bridge.ts ./scripts/build-bridge.ts
+COPY --chown=node:node scripts/build-bridge.ts scripts/build-git-broker.ts ./scripts/
 RUN pnpm install --frozen-lockfile && pnpm build \
     && mkdir -p /home/node/workspace /home/node/.workbench \
     && chown -R node:node /home/node/workspace /home/node/.workbench

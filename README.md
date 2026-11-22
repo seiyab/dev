@@ -134,6 +134,14 @@ terminal. For Codex authentication, run `codex login --device-auth` inside the
 container. No host credentials are mounted; Codex login state is also local to the
 container and must be renewed after container recreation.
 
+## Git publishing broker prototype
+
+A credential-free prototype now exercises normal `git push` and lazygit through
+a scoped broker against a local test upstream. Run `pnpm broker:demo` from this
+checkout to try it; see [the prototype guide](apps/git-broker/README.md).
+GitHub authentication and the isolated Compose broker service are the next stage.
+The workbench does not yet receive GitHub publishing access.
+
 ## Local development
 
 Install the Node version in `.node-version`, pnpm 10.34.9, tmux, a shell, and the
