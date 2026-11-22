@@ -21,6 +21,9 @@ export function SessionDialog({
   notice: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const filter = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const create = useRef<HTMLButtonElement>(null);
   const selected = sessions.find((s) => s.id === selectedId);
   const [view, setView] = useState<SessionDialogMode | "delete">(mode);
   const [target, setTarget] = useState<WorkSession | undefined>(selected);
@@ -35,12 +38,82 @@ export function SessionDialog({
     dialog.current?.showModal();
   }, []);
   useEffect(() => {
+    if (view === "sessions") {
+      focusSession();
+      return;
+    }
     dialog.current
       ?.querySelector<HTMLInputElement | HTMLButtonElement>(
         "input, button[data-initial-focus]",
       )
       ?.focus();
   }, [view]);
+  function focusSession() {
+    const current = list.current?.querySelector<HTMLButtonElement>(
+      '[aria-current="true"]',
+    );
+    const first = list.current?.querySelector<HTMLButtonElement>(
+      `.${styles.select}`,
+    );
+    (current ?? first ?? create.current)?.focus();
+  }
+  function showCreateForm() {
+    setName("");
+    setView("create-session");
+  }
+  function handleKeyDown(event: KeyboardEvent) {
+    if (
+      view !== "sessions" ||
+      busy ||
+      event.isComposing ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey
+    )
+      return;
+
+    if (event.target === filter.current) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        focusSession();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        list.current
+          ?.querySelector<HTMLButtonElement>(`.${styles.select}`)
+          ?.click();
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case "/":
+        event.preventDefault();
+        filter.current?.focus();
+        break;
+      case "n":
+        event.preventDefault();
+        showCreateForm();
+        break;
+      case "j":
+      case "k": {
+        event.preventDefault();
+        const buttons = Array.from(
+          list.current?.querySelectorAll<HTMLButtonElement>(
+            `.${styles.select}`,
+          ) ?? [],
+        );
+        const index = buttons.findIndex((button) => button === event.target);
+        const next =
+          event.key === "j"
+            ? Math.min(index + 1, buttons.length - 1)
+            : index < 0
+              ? buttons.length - 1
+              : Math.max(index - 1, 0);
+        buttons[next]?.focus();
+        break;
+      }
+    }
+  }
   async function submit(action: SessionAction) {
     if (busy) return;
     setBusy(true);
@@ -55,6 +128,7 @@ export function SessionDialog({
       ref={dialog}
       class={styles.dialog}
       aria-labelledby="session-title"
+      onKeyDown={handleKeyDown}
       onCancel={(e) => {
         e.preventDefault();
         if (!busy) close();
@@ -78,6 +152,8 @@ export function SessionDialog({
       {view === "sessions" ? (
         <>
           <input
+            ref={filter}
+            aria-keyshortcuts="/"
             aria-label="Filter sessions"
             placeholder="Filter sessions…"
             value={query}
@@ -89,7 +165,7 @@ export function SessionDialog({
           >
             {showArchived ? "Hide archived sessions" : "Show archived sessions"}
           </button>
-          <div class={styles.list}>
+          <div ref={list} class={styles.list}>
             {sessions
               .filter((s) => showArchived || !s.archived)
               .filter((s) =>
@@ -102,6 +178,7 @@ export function SessionDialog({
                   <button
                     disabled={busy}
                     class={styles.select}
+                    aria-current={s.id === selectedId ? "true" : undefined}
                     onClick={() => void submit({ action: "select", id: s.id })}
                   >
                     <span>
@@ -149,11 +226,10 @@ export function SessionDialog({
               ))}
           </div>
           <button
+            ref={create}
+            aria-keyshortcuts="n"
             disabled={busy}
-            onClick={() => {
-              setName("");
-              setView("create-session");
-            }}
+            onClick={showCreateForm}
           >
             Create session
           </button>

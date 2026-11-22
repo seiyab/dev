@@ -428,6 +428,43 @@ async function switchSession(page: Page, name: string) {
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
+test("session picker supports keyboard navigation, search, and creation", async ({
+  page,
+}) => {
+  await prefix(page, "s");
+  const picker = page.getByRole("dialog");
+  const original = picker.getByRole("button", { name: /^Switch to Default/ });
+  await expect(original).toBeFocused();
+  await page.keyboard.press("n");
+  const name = picker.getByLabel("Session name");
+  await expect(name).toBeFocused();
+  await name.fill("jnk");
+  await page.keyboard.press("Enter");
+  await expect(picker).toHaveCount(0);
+
+  await prefix(page, "s");
+  const created = picker.getByRole("button", { name: /^Switch to jnk/ });
+  await expect(created).toBeFocused();
+  await page.keyboard.press("k");
+  await expect(original).toBeFocused();
+  await page.keyboard.press("j");
+  await expect(created).toBeFocused();
+  await page.keyboard.press("/");
+  const filter = picker.getByRole("textbox", { name: "Filter sessions" });
+  await expect(filter).toBeFocused();
+  await page.keyboard.type("jnk");
+  await expect(filter).toHaveValue("jnk");
+  await expect(original).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(created).toBeFocused();
+  await page.keyboard.press("/");
+  await filter.fill("Default");
+  await page.keyboard.press("Enter");
+  await expect(picker).toHaveCount(0);
+  await prefix(page, "s");
+  await expect(original).toBeFocused();
+});
+
 test("directory sessions preserve independent shells, layouts, and selection", async ({
   page,
 }) => {
