@@ -218,6 +218,12 @@ development container or shared with its writable project/state volumes. Neither
 service receives a Docker socket. Broker policy is managed outside the development
 container; the terminal bridge and work-session metadata cannot grant permissions.
 
+Provision explicitly through a profile-gated service in `compose.github.yaml`.
+Read the App key from stdin and write policy/key and box capability to distinct
+Docker-managed volumes. Mount only the capability volume into the workbench.
+Do not require host output directories, input bind mounts, or host UID mapping.
+Normal startup must not run provisioning or rotate capabilities.
+
 The development container authenticates to the broker with a scoped capability.
 This is authority that container code can exercise or copy, even though it is not
 a GitHub credential. Assign a stable box identity and its repository grants from

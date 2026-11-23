@@ -16,8 +16,9 @@ COPY --chown=node:node apps ./apps
 COPY --chown=node:node packages ./packages
 COPY --chown=node:node scripts/build-bridge.ts scripts/build-git-broker.ts ./scripts/
 RUN pnpm install --frozen-lockfile && pnpm build \
-    && mkdir -p /home/node/workspace /home/node/.workbench \
-    && chown -R node:node /home/node/workspace /home/node/.workbench
+    && mkdir -p /home/node/workspace /home/node/.workbench /home/node/.box-capability \
+    && chown -R node:node /home/node/workspace /home/node/.workbench /home/node/.box-capability \
+    && chmod 700 /home/node/.box-capability
 
 USER node
 ARG NVIM_CONFIG_REVISION=7a7e3830290bf2b7805de2d0a9cbfa76bee18327

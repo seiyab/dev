@@ -472,7 +472,7 @@ test(
   async () => {
     const values: Record<string, string> = {
       BOX_BROKER_URL: "http://git-broker:3180",
-      BOX_CAPABILITY_FILE: "/run/secrets/box-capability",
+      BOX_CAPABILITY_FILE: "/home/node/.box-capability/box-capability",
       GH_TOKEN: "must-not-reach-shell",
       GITHUB_TOKEN: "must-not-reach-shell",
     };
@@ -492,7 +492,7 @@ test(
         terminal
           .output()
           .includes(
-            "BROKER_http://git-broker:3180|/run/secrets/box-capability|unset|unset",
+            "BROKER_http://git-broker:3180|/home/node/.box-capability/box-capability|unset|unset",
           ),
       );
       await terminal.detach();

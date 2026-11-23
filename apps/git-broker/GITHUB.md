@@ -25,78 +25,75 @@ identity, canonical name, and public visibility before using an installation tok
 for Git. Public clone/fetch continues directly to GitHub; neither `gh auth login`
 nor a GitHub token inside the workbench is required.
 
-## Provision outside the repository
+## Provision into Docker-managed volumes
 
-On your Docker Desktop host, create an input JSON file, for example
-`~/.config/dev-workbench-broker-input.json`. Only Docker with Compose and standard
-host shell utilities are required; Node, pnpm, Git, and build tools run inside
-containers:
-
-```json
-{
-  "boxId": "local",
-  "appId": "REPLACE_WITH_APP_OR_CLIENT_ID",
-  "repositories": [
-    {
-      "id": "OWNER/REPO",
-      "repositoryId": 123456,
-      "installationId": 789012
-    }
-  ]
-}
-```
-
-From the repo root, set the paths and your host user/group IDs (macOS or Linux):
+Only Docker with Compose and a standard host shell are required. No host Node,
+pnpm, Git, build tools, UID/GID settings, or writable host bind mounts are needed.
+From the repo root, supply the non-secret settings through environment variables:
 
 ```sh
-export WORKBENCH_BROKER_INPUT="$HOME/.config/dev-workbench-broker-input.json"
-export WORKBENCH_GITHUB_APP_KEY="/absolute/path/to/the-app-private-key.pem"
-export WORKBENCH_BROKER_DIR="$HOME/.config/dev-workbench-broker"
-export WORKBENCH_UID="$(id -u)"
-export WORKBENCH_GID="$(id -g)"
-mkdir -p "$WORKBENCH_BROKER_DIR"
-chmod 700 "$WORKBENCH_BROKER_DIR"
-docker compose -f compose.provision.yaml run --build --rm broker-provision
+export WORKBENCH_BOX_ID=local
+export WORKBENCH_GITHUB_APP_ID=REPLACE_WITH_APP_OR_CLIENT_ID
+export WORKBENCH_GITHUB_REPOSITORIES='[{"id":"OWNER/REPO","repositoryId":123456,"installationId":789012}]'
 ```
 
-The one-off provisioner runs as your host UID/GID, has no network access or Linux
-capabilities, and has a read-only root filesystem. Its only host mounts are the
-input JSON and App key (read-only) and the output directory (writable). It does not
-mount your home directory or source checkout, and does not receive the Docker
-socket. The key path is selected by the mount, so the JSON does not need a host
-`privateKeyFile` field.
+Then pipe the downloaded App private key into the one-off provisioner:
 
-This validates and copies the key, generates a random scoped box capability, and
-writes a broker policy. The output directory must be private (0700), owned by you,
-and outside the source repository. Files are read-only (0444) so non-root container
-users can read file-backed Compose secrets; the private parent directory protects
-host access. The private key and capability values are never printed. Keep the
-whole directory outside version control and Docker build contexts.
+```sh
+docker compose -f compose.workbench.yaml -f compose.github.yaml run --build --rm -T broker-provision < "/absolute/path/to/the-app-private-key.pem"
+```
 
-Provisioning an existing directory preserves its box capability and refuses to
-change box identity. Use a different directory for a different box. A box's
-namespace is `box/<boxId>/<topic>`; all sessions and processes in that workbench
-share its authority.
+The shell reads that existing host file; the container receives its contents on
+stdin. The key is not passed in arguments, environment variables, or a host bind
+mount, and is never printed. The provisioner accepts only an unencrypted RSA key,
+with a 64 KiB input limit. Its runtime has no network, Docker socket, or Linux
+capabilities, and its root filesystem is read-only. Building the image still needs
+network access to download dependencies.
+
+Provisioning writes only to two named volumes, as the image's fixed non-root
+`node` user:
+
+| Volume                      | Contents            | Provisioner | Broker    | Workbench |
+| --------------------------- | ------------------- | ----------- | --------- | --------- |
+| `github-broker-credentials` | App key and policy  | Read/write  | Read-only | No mount  |
+| `github-box-capability`     | Box capability only | Read/write  | Read-only | Read-only |
+
+Volume directories are 0700 and files are 0400. The workbench never receives the
+App key or policy. The broker's writable state stays in the separate
+`github-broker-state` volume. Named volumes consume Docker-managed storage on the
+host, but containers do not write into ordinary host directories.
+
+The provisioner lives in `compose.github.yaml` under the `provision` profile.
+Explicit `run broker-provision` enables that service; normal `up` does not run it.
+Provisioning preserves an existing capability unless `--rotate` is given, and
+refuses to change the existing box identity. Each Compose project should have its
+own box identity and volumes. A box's namespace is `box/<boxId>/<topic>`; all
+sessions and processes in that workbench share its authority.
 
 ## Start the services
 
+After successful provisioning:
+
 ```sh
-export WORKBENCH_BROKER_DIR="$HOME/.config/dev-workbench-broker"
-docker compose -f compose.workbench.yaml -f compose.github.yaml config --quiet
-docker compose -f compose.workbench.yaml -f compose.github.yaml up --build --force-recreate -d
+docker compose -f compose.workbench.yaml -f compose.github.yaml up --build -d
 ```
 
-Recreating the workbench stops its running shells; project data and saved layouts
-remain in their volumes. The broker has its own state volume, a read-only root
-filesystem, no Linux capabilities, and no published host port. Only the box
-capability is mounted into the workbench. The App key and policy are mounted only
-into the broker, and no project or workbench-state volume is shared with it.
+Starting without provisioning fails because the broker has no policy or key.
+The broker's root filesystem is read-only, it has no Linux capabilities, and it
+publishes no host port. No project or workbench-state volume is shared with it.
 
 The services communicate over a private internal network. The broker has a
 separate network for GitHub egress; the workbench retains its ordinary development
 network. Neither service has the Docker socket. These are container isolation
 boundaries; the broker itself, its Git implementation, and the Docker Desktop
 host remain trusted.
+
+If migrating from the earlier host-directory setup, provision the named volumes
+with the same box ID and repository grants, then recreate the services with
+`up --build --force-recreate -d`. The existing broker-state volume preserves branch
+ownership. Old host output files are no longer read or mounted; remove obsolete
+copies yourself after verifying the new setup if desired. Recreating the workbench
+stops its shells but preserves project files and saved layouts.
 
 ## Verify access and push
 
@@ -140,30 +137,31 @@ push can have an uncertain upstream outcome: fetch and inspect before retrying.
 
 ## Update grants, revoke, and rotate
 
-Keep the provisioning environment variables set (or export them again in a new
-shell). Edit the input and rerun the same Docker provisioning command to change
-repository grants;
-an empty repositories list revokes all publishing grants. Recreate **both** services
-with the overlay after changing policy, key, or capability files. Compose file
-mounts can retain the old inode after atomic replacement, so a process restart
-alone is insufficient.
-
-To invalidate a copied capability while keeping the same box identity:
+Set the provisioning environment variables again when using a new shell. Change
+`WORKBENCH_GITHUB_REPOSITORIES` to update grants; `[]` revokes all publishing grants.
+Stop the broker while updating its policy and credentials, provision again through
+stdin, then start it again:
 
 ```sh
-docker compose -f compose.provision.yaml run --build --rm broker-provision --rotate
-docker compose -f compose.workbench.yaml -f compose.github.yaml up --force-recreate -d
+docker compose -f compose.workbench.yaml -f compose.github.yaml stop git-broker
+docker compose -f compose.workbench.yaml -f compose.github.yaml run --build --rm -T broker-provision < "/absolute/path/to/the-app-private-key.pem"
+docker compose -f compose.workbench.yaml -f compose.github.yaml up -d git-broker
 ```
 
-The continuing workbench intentionally receives the new capability. To revoke
-access immediately, stop the broker service or remove its grants and recreate it;
-rotating a capability does not remove authority from a workbench that receives
-the replacement. App key rotation/revocation is managed through GitHub and the
-private provisioning input.
+To invalidate a copied capability, use `broker-provision --rotate` in that same
+sequence. It still reads the key from stdin. Existing workbench terminals can keep
+running: directory volume mounts expose updated files, the helper rereads its
+capability on each invocation, and starting the broker reloads its key and policy.
+The continuing workbench intentionally receives the replacement capability;
+rotation does not revoke its access. To revoke access immediately, stop the broker
+or remove its grants and reload it. App key revocation is managed through GitHub.
 
-Keep the broker state volume: it records branch ownership and pending creations.
-Removing it does not safely adopt existing branches; those branches will be
-rejected until trusted reconciliation is performed. There is one broker process
-per state directory. Full bundles remain limited to 8 MiB; private repositories,
-large/shallow repositories, multi-ref pushes, and production recovery tooling are
-deferred.
+Keep all three named volumes. Removing broker state does not safely adopt existing
+branches: they will be rejected until trusted reconciliation is performed. Removing
+the credentials or capability volumes requires provisioning again. Avoid
+`docker compose down --volumes` unless you intend to remove those credentials,
+ownership metadata, and the workbench's project/state data.
+
+There is one broker process per state directory. Full bundles remain limited to
+8 MiB; private repositories, large/shallow repositories, multi-ref pushes, and
+production recovery tooling are deferred.

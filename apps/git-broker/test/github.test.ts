@@ -4,13 +4,21 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, verify } from "node:crypto";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { GitHubApp } from "../src/github.js";
 import { brokerGit, type GitRunner } from "../src/git.js";
-import { provisionMountedBroker } from "../src/provision-mounted.js";
+import { Readable } from "node:stream";
+import { provisionFromStdin } from "../src/provision-stdin.js";
 import { provisionGitHubBroker } from "../src/provision.js";
 import { createUpstreams } from "../src/upstreams.js";
 
@@ -193,56 +201,86 @@ test("Git credentials are scoped to the configured upstream and never command ar
   assert.equal(invalidated, 1);
 });
 
-test("provisioning separates policy and App key from the box capability, preserves identity and supports rotation", async () => {
+test("provisioning keeps App credentials and box capability separate, preserves identity and supports rotation", async () => {
   const f = await fixture();
   try {
-    const destination = join(f.directory, "private");
-    const input = {
-      boxId: "local",
-      appId: "123",
-      privateKeyFile: f.key,
-      repositories: [repository],
-    };
-    provisionGitHubBroker(input, destination);
-    const policyText = await readFile(join(destination, "policy.json"), "utf8");
+    const credentialsDir = join(f.directory, "credentials");
+    const capabilityDir = join(f.directory, "capability");
+    const outputs = { credentialsDir, capabilityDir };
+    const key = await readFile(f.key);
+    const input = { boxId: "local", appId: "123", repositories: [repository] };
+    provisionGitHubBroker(input, key, outputs);
+    const policyText = await readFile(
+      join(credentialsDir, "policy.json"),
+      "utf8",
+    );
     const policy = JSON.parse(policyText);
     const capability = await readFile(
-      join(destination, "box-capability"),
+      join(capabilityDir, "box-capability"),
       "utf8",
     );
     assert.match(capability.trim(), /^[0-9a-f]{64}$/);
     assert.ok(!policyText.includes(capability.trim()));
     assert.ok(!policyText.includes("PRIVATE KEY"));
-    assert.equal(policy.boxes[0].capabilityFile, "/run/secrets/box-capability");
+    assert.deepEqual(await readdir(capabilityDir), ["box-capability"]);
+    assert.deepEqual((await readdir(credentialsDir)).sort(), [
+      "github-app.pem",
+      "policy.json",
+    ]);
+    assert.equal(
+      policy.boxes[0].capabilityFile,
+      "/home/node/.box-capability/box-capability",
+    );
     assert.equal(
       policy.githubApp.privateKeyFile,
-      "/run/secrets/github-app-key",
+      "/home/node/.broker-credentials/github-app.pem",
     );
-    assert.equal((await stat(destination)).mode & 0o777, 0o700);
+    assert.equal((await stat(credentialsDir)).mode & 0o777, 0o700);
+    assert.equal((await stat(capabilityDir)).mode & 0o777, 0o700);
     assert.equal(
-      (await stat(join(destination, "github-app.pem"))).mode & 0o777,
-      0o444,
+      (await stat(join(credentialsDir, "github-app.pem"))).mode & 0o777,
+      0o400,
     );
-    provisionGitHubBroker(input, destination);
+    provisionGitHubBroker(input, key, outputs);
     assert.equal(
-      await readFile(join(destination, "box-capability"), "utf8"),
+      await readFile(join(capabilityDir, "box-capability"), "utf8"),
       capability,
     );
-    provisionGitHubBroker(input, destination, true);
+    provisionGitHubBroker(input, key, outputs, true);
     assert.notEqual(
-      await readFile(join(destination, "box-capability"), "utf8"),
+      await readFile(join(capabilityDir, "box-capability"), "utf8"),
       capability,
     );
-    provisionGitHubBroker({ ...input, repositories: [] }, destination);
+    provisionGitHubBroker({ ...input, repositories: [] }, key, outputs);
     assert.deepEqual(
-      JSON.parse(await readFile(join(destination, "policy.json"), "utf8"))
+      JSON.parse(await readFile(join(credentialsDir, "policy.json"), "utf8"))
         .boxes[0].repositories,
       [],
     );
     assert.throws(
       () =>
-        provisionGitHubBroker({ ...input, boxId: "someone-else" }, destination),
+        provisionGitHubBroker(
+          { ...input, boxId: "someone-else" },
+          key,
+          outputs,
+        ),
       /different box identity/,
+    );
+    assert.throws(
+      () =>
+        provisionGitHubBroker(input, key, {
+          credentialsDir,
+          capabilityDir: credentialsDir,
+        }),
+      /separate/,
+    );
+    assert.throws(
+      () =>
+        provisionGitHubBroker(input, key, {
+          credentialsDir,
+          capabilityDir: join(credentialsDir, "child"),
+        }),
+      /separate/,
     );
     await assert.rejects(
       createUpstreams({
@@ -294,42 +332,69 @@ test("real Git receives the scoped auth header and refuses redirects", async () 
   }
 });
 
-test("mounted provisioning uses the explicitly mounted key and output, preserves capability, and rotates", async () => {
+test("stdin provisioning accepts chunked keys, rejects invalid input, and preserves or rotates capabilities", async () => {
   const f = await fixture();
   try {
-    const input = join(f.directory, "input.json");
-    const output = join(f.directory, "output");
-    await writeFile(
-      input,
-      JSON.stringify({
-        boxId: "docker",
-        appId: "123",
-        repositories: [repository],
-        privateKeyFile: "/unmounted/host/path.pem",
-        destination: "/unmounted/output",
-      }),
+    const key = await readFile(f.key);
+    const outputs = {
+      credentialsDir: join(f.directory, "credentials"),
+      capabilityDir: join(f.directory, "capability"),
+    };
+    const env = {
+      BOX_ID: "docker",
+      GITHUB_APP_ID: "123",
+      GITHUB_REPOSITORIES: JSON.stringify([repository]),
+    };
+    const run = (rotate = false) =>
+      provisionFromStdin(
+        env,
+        Readable.from([key.subarray(0, 40), key.subarray(40)]),
+        outputs,
+        rotate,
+      );
+    await run();
+    assert.deepEqual(
+      await readFile(join(outputs.credentialsDir, "github-app.pem")),
+      key,
     );
-    provisionMountedBroker(input, f.key, output);
-    assert.equal(await readFile(join(output, "github-app.pem"), "utf8"), pem);
-    const capability = await readFile(join(output, "box-capability"), "utf8");
-    provisionMountedBroker(input, f.key, output);
+    const capability = await readFile(
+      join(outputs.capabilityDir, "box-capability"),
+      "utf8",
+    );
+    await run();
     assert.equal(
-      await readFile(join(output, "box-capability"), "utf8"),
+      await readFile(join(outputs.capabilityDir, "box-capability"), "utf8"),
       capability,
     );
-    provisionMountedBroker(input, f.key, output, true);
+    await run(true);
     assert.notEqual(
-      await readFile(join(output, "box-capability"), "utf8"),
+      await readFile(join(outputs.capabilityDir, "box-capability"), "utf8"),
       capability,
+    );
+    await assert.rejects(
+      provisionFromStdin(env, Readable.from([]), outputs),
+      /through stdin/,
+    );
+    await assert.rejects(
+      provisionFromStdin(env, Readable.from([Buffer.alloc(65537)]), outputs),
+      /64 KiB/,
+    );
+    await assert.rejects(
+      provisionFromStdin(env, Readable.from(["not a key"]), outputs),
+      /RSA private key/,
+    );
+    await assert.rejects(
+      provisionFromStdin(
+        { ...env, GITHUB_REPOSITORIES: "invalid" },
+        Readable.from([key]),
+        outputs,
+      ),
+      /JSON array/,
     );
     const policy = JSON.parse(
-      await readFile(join(output, "policy.json"), "utf8"),
+      await readFile(join(outputs.credentialsDir, "policy.json"), "utf8"),
     );
     assert.equal(policy.boxes[0].id, "docker");
-    assert.equal(
-      policy.githubApp.privateKeyFile,
-      "/run/secrets/github-app-key",
-    );
   } finally {
     await f.close();
   }

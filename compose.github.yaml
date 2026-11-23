@@ -2,9 +2,9 @@ services:
   workbench:
     environment:
       BOX_BROKER_URL: http://git-broker:3180
-      BOX_CAPABILITY_FILE: /run/secrets/box-capability
-    secrets:
-      - box-capability
+      BOX_CAPABILITY_FILE: /home/node/.box-capability/box-capability
+    volumes:
+      - github-box-capability:/home/node/.box-capability:ro
     networks:
       - default
       - box-broker
@@ -17,12 +17,10 @@ services:
       context: .
       dockerfile: Dockerfile.git-broker
     init: true
-    secrets:
-      - broker-policy
-      - github-app-key
-      - box-capability
     volumes:
       - github-broker-state:/home/node/.git-broker
+      - github-broker-credentials:/home/node/.broker-credentials:ro
+      - github-box-capability:/home/node/.box-capability:ro
     networks:
       - box-broker
       - github-egress
@@ -45,16 +43,35 @@ services:
       timeout: 5s
       retries: 3
 
-secrets:
-  broker-policy:
-    file: ${WORKBENCH_BROKER_DIR:?Run broker provisioning and set WORKBENCH_BROKER_DIR}/policy.json
-  github-app-key:
-    file: ${WORKBENCH_BROKER_DIR:?Run broker provisioning and set WORKBENCH_BROKER_DIR}/github-app.pem
-  box-capability:
-    file: ${WORKBENCH_BROKER_DIR:?Run broker provisioning and set WORKBENCH_BROKER_DIR}/box-capability
+  broker-provision:
+    profiles: [provision]
+    build:
+      context: .
+      dockerfile: Dockerfile.git-broker
+    entrypoint: [node, /opt/broker/provision-container.js]
+    command: []
+    init: true
+    stdin_open: true
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    environment:
+      BOX_ID: ${WORKBENCH_BOX_ID:-local}
+      GITHUB_APP_ID: ${WORKBENCH_GITHUB_APP_ID:-}
+      GITHUB_REPOSITORIES: ${WORKBENCH_GITHUB_REPOSITORIES:-[]}
+    volumes:
+      - github-broker-credentials:/home/node/.broker-credentials
+      - github-box-capability:/home/node/.box-capability
 
 volumes:
   github-broker-state:
+  github-broker-credentials:
+  github-box-capability:
 
 networks:
   box-broker:

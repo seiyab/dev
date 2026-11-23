@@ -142,8 +142,9 @@ container and must be renewed after container recreation.
 
 Use [GitHub publishing setup](apps/git-broker/GITHUB.md) to enable scoped pushes
 to selected public repositories through a separate GitHub App broker. Provisioning
-and startup run through Docker Compose; host Node, pnpm, Git, and build toolchains
-are not required. The default workbench still starts without GitHub credentials.
+and startup run through Docker Compose; the App key enters through stdin and
+provisioning outputs stay in separate Docker-managed named volumes. No writable
+host bind mounts or host Node, pnpm, Git, or build toolchains are required. The default workbench still starts without GitHub credentials.
 PR creation is a later step.
 
 An optional [local prototype for contributors](apps/git-broker/README.md) exercises
