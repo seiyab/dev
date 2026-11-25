@@ -34,11 +34,7 @@ services:
     pids_limit: 128
     mem_limit: 512m
     healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:3180/health',{headers:{Host:'git-broker:3180'}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      test: [CMD, node, /opt/broker/healthcheck.js]
       interval: 10s
       timeout: 5s
       retries: 3

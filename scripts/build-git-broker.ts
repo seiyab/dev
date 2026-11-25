@@ -4,6 +4,7 @@ await build({
   absWorkingDir: new URL("..", import.meta.url).pathname,
   entryPoints: [
     "apps/git-broker/src/index.ts",
+    "apps/git-broker/src/healthcheck.ts",
     "apps/git-broker/src/helper.ts",
     "apps/git-broker/src/provision-container.ts",
   ],

@@ -511,3 +511,29 @@ test(
     }
   },
 );
+
+test("container health probe preserves the configured Host over loopback", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "box-health-test-"));
+  const broker = await startGitBroker({
+    port: 0,
+    allowedHost: "git-broker:3180",
+    stateDir: directory,
+    repositories: [],
+    boxes: [],
+  });
+  try {
+    // This is the previous probe: fetch silently substitutes the connection Host.
+    const rejected = await fetch(broker.url + "/health", {
+      headers: { Host: "git-broker:3180" },
+    });
+    assert.equal(rejected.status, 403);
+    const port = new URL(broker.url).port;
+    await exec(process.execPath, [
+      resolve("apps/git-broker/dist/healthcheck.js"),
+      port,
+    ]);
+  } finally {
+    await broker.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
