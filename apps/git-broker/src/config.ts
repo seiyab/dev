@@ -2,7 +2,11 @@ export type RepositoryGrant =
   | { id: string; upstream: string; github?: never }
   | {
       id: string;
-      github: { repositoryId: number; installationId: number };
+      github: {
+        repositoryId: number;
+        installationId: number;
+        baseBranches?: string[];
+      };
       upstream?: never;
     };
 

@@ -151,7 +151,8 @@ to selected public repositories through a separate GitHub App broker. Provisioni
 and startup run through Docker Compose; the App key enters through stdin and
 provisioning outputs stay in separate Docker-managed named volumes. No writable
 host bind mounts or host Node, pnpm, Git, or build toolchains are required. The default workbench still starts without GitHub credentials.
-PR creation is a later step.
+Use `box gh pr create --title "Describe the change" --body-file ./pr-description.md`
+after pushing an owned branch. See the setup guide for App permissions and base-branch policy.
 
 An optional [local prototype for contributors](apps/git-broker/README.md) exercises
 Git and lazygit against a test upstream without GitHub credentials. Its pnpm

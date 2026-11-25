@@ -1,12 +1,14 @@
 import { createPrivateKey, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
+import type { PullRequestRequest } from "./protocol.js";
 import { BrokerError } from "./protocol.js";
 
 type GitHubRepository = {
   id: string;
   repositoryId: number;
   installationId: number;
+  baseBranches?: string[];
 };
 interface Token {
   token: string;
@@ -69,7 +71,7 @@ export class GitHubApp {
     }
     if (!response.ok)
       throw new BrokerError(
-        `GitHub App request denied (${response.status}); check installation access and Contents permission`,
+        `GitHub App request denied (${response.status}); check installation access and Contents / Pull requests permissions`,
         502,
       );
     try {
@@ -78,13 +80,17 @@ export class GitHubApp {
       throw new BrokerError("Invalid GitHub App response", 502);
     }
   }
-  private async mint(repository: GitHubRepository): Promise<Token> {
+  private async mint(
+    repository: GitHubRepository,
+    pullRequests = false,
+  ): Promise<Token> {
+    const permission = pullRequests ? "pull_requests" : "contents";
     const result = await this.api(
       `/app/installations/${repository.installationId}/access_tokens`,
       this.jwt(),
       {
         repository_ids: [repository.repositoryId],
-        permissions: { contents: "write" },
+        permissions: { [permission]: "write" },
       },
     );
     const expiresAt = Date.parse(result?.expires_at);
@@ -95,11 +101,11 @@ export class GitHubApp {
       !Number.isFinite(expiresAt) ||
       expiresAt <= this.now() + 120_000 ||
       expiresAt > this.now() + 7_200_000 ||
-      result.permissions?.contents !== "write" ||
+      result.permissions?.[permission] !== "write" ||
       (result.permissions.metadata !== undefined &&
         result.permissions.metadata !== "read") ||
       Object.keys(result.permissions).some(
-        (p) => !["contents", "metadata"].includes(p),
+        (p) => ![permission, "metadata"].includes(p),
       )
     )
       throw new BrokerError(
@@ -120,6 +126,70 @@ export class GitHubApp {
         403,
       );
     return { token: result.token, expiresAt };
+  }
+  async createPullRequest(
+    repository: GitHubRepository,
+    request: PullRequestRequest,
+  ) {
+    // PR authority is minted separately; Git transport tokens remain Contents-only.
+    const { token } = await this.mint(repository, true);
+    const path = `/repos/${repository.id}`;
+    const owner = repository.id.split("/")[0];
+    const find = async () => {
+      const result = await this.api(
+        `${path}/pulls?state=open&head=${encodeURIComponent(owner + ":" + request.head)}&per_page=100`,
+        token,
+      );
+      if (!Array.isArray(result))
+        throw new BrokerError("Invalid GitHub PR response", 502);
+      return result.find(
+        (pr) =>
+          pr.head?.ref === request.head &&
+          pr.head?.repo?.id === repository.repositoryId &&
+          pr.base?.repo?.id === repository.repositoryId,
+      );
+    };
+    const info = await this.api(
+      `/repositories/${repository.repositoryId}`,
+      token,
+    );
+    const base = request.base ?? info?.default_branch;
+    const allowed = repository.baseBranches ?? [info?.default_branch];
+    if (typeof base !== "string" || !allowed.includes(base))
+      throw new BrokerError(
+        "PR base branch is not allowed by the repository grant",
+        403,
+      );
+    let pr = await find();
+    let created = false;
+    if (!pr) {
+      try {
+        pr = await this.api(path + "/pulls", token, {
+          title: request.title,
+          body: request.body,
+          head: request.head,
+          base,
+          draft: request.draft,
+        });
+        created = true;
+      } catch (error) {
+        // Reconcile a racing create or a response lost after GitHub accepted it.
+        pr = await find();
+        if (!pr) throw error;
+      }
+    }
+    if (!created && (!allowed.includes(pr.base?.ref) || pr.base?.ref !== base))
+      throw new BrokerError(
+        "An open PR already exists for this head with a different or disallowed base",
+        409,
+      );
+    if (
+      !Number.isSafeInteger(pr.number) ||
+      pr.number < 1 ||
+      pr.html_url !== `https://github.com/${repository.id}/pull/${pr.number}`
+    )
+      throw new BrokerError("Invalid GitHub PR response", 502);
+    return { number: pr.number as number, url: pr.html_url as string, created };
   }
   private cacheKey(repository: GitHubRepository) {
     return `${repository.installationId}:${repository.repositoryId}:${repository.id}`;

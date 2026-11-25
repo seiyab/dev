@@ -2,14 +2,15 @@
 
 The optional `compose.github.yaml` overlay adds a separate Git publishing broker.
 The normal `compose.workbench.yaml` remains usable without GitHub configuration.
-PR creation and the `box` CLI are a later stage; this stage enables Git/lazygit pushes.
+It enables Git/lazygit pushes and `box gh pr create` from workbench terminals.
 
 ## Prepare the App and repository grant
 
 Use a GitHub App installed on **only selected repositories**. For this stage grant
-repository **Contents: Read and write**; Metadata read access is implicit. The
-broker requests installation tokens scoped to one numeric repository ID at a time
-and only Contents write permission. It does not request Workflows permission, so
+repository **Contents: Read and write** and **Pull requests: Read and write**;
+Metadata read access is implicit. Approve the updated permissions on existing
+installations as well. The broker requests tokens scoped to one numeric repository
+ID at a time: Contents-only for Git transport, and Pull requests-only for PR operations. It does not request Workflows permission, so
 publishing workflow changes may be rejected by GitHub. No OAuth user login or
 webhook receiver is needed for these operations.
 
@@ -122,7 +123,7 @@ that repository's normal push workflows. Keep this branch or remove it manually
 through GitHub; the broker intentionally cannot delete branches. Subsequent
 commits use ordinary `git push` or lazygit's normal **P** binding. Git commit
 identity remains your configured author/committer identity; App-authenticated API
-operations such as future PR creation use the App/bot identity.
+operations such as PR creation use the App/bot identity.
 
 With that new commit still ahead of the base branch, `git push origin HEAD:main`
 should fail with a broker namespace rejection. Other boxes' namespaces, tags,
@@ -165,3 +166,64 @@ ownership metadata, and the workbench's project/state data.
 There is one broker process per state directory. Full bundles remain limited to
 8 MiB; private repositories, large/shallow repositories, multi-ref pushes, and
 production recovery tooling are deferred.
+
+## Create a pull request
+
+After changing the App permissions, rebuild and start both services using your
+usual Compose project name and files:
+
+```sh
+docker compose -f compose.workbench.yaml -f compose.github.yaml up --build -d
+```
+
+Inside a workbench terminal, push the branch first, then run:
+
+```sh
+git push -u origin HEAD
+box gh pr create --title "Describe the change" --body-file ./pr-description.md --draft
+```
+
+The command prints the PR URL. Add `--json` for
+`{"number":123,"url":"https://github.com/OWNER/REPO/pull/123","created":true}`.
+Omit `--body-file` for an empty description. Files are read inside the workbench;
+no host toolchain is required.
+
+The CLI derives the current branch and selects its push remote using Git's
+branch pushRemote, remote.pushDefault, tracking remote, then origin precedence.
+That remote must have exactly one `box::OWNER/REPO` push URL. Detached HEAD is
+rejected. The command does not commit, push, open a browser, or modify existing
+PRs.
+
+The broker requires a recorded owned branch in this box's namespace, a granted
+repository, and a head that exists upstream. By default, only the repository's
+current default branch is allowed as the PR base. `--base BRANCH` selects a base
+but cannot broaden that policy. To allow additional bases, include an explicit
+`baseBranches` list in each applicable `WORKBENCH_GITHUB_REPOSITORIES` entry:
+
+```json
+[
+  {
+    "id": "OWNER/REPO",
+    "repositoryId": 123456,
+    "installationId": 789012,
+    "baseBranches": ["main", "release"]
+  }
+]
+```
+
+Re-run provisioning and restart the broker as described above when changing this
+grant. An explicit list replaces the default policy; an empty list disables PR
+creation for that repository. Omitted `--base` still selects the default branch,
+which must be allowed.
+
+Repeated calls return an existing open PR for the same repository and head
+without changing its title, body, or draft status (`created:false`). If that PR
+targets a different or disallowed base, the command reports a conflict.
+Concurrent creation and uncertain create responses are reconciled by checking
+for an existing PR before reporting failure. Creation/find metadata is audited;
+PR bodies and credentials are not logged. PRs use the App/bot identity.
+
+The broker uses GitHub's
+[create/list pull request API](https://docs.github.com/en/rest/pulls/pulls).
+PR editing, merging, reviews, private repositories, and authenticated use of
+the actual `gh` executable remain outside this implementation.

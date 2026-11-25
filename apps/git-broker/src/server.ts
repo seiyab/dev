@@ -17,6 +17,7 @@ import {
   isRepositoryId,
   MAX_BUNDLE_BYTES,
   type PushRequest,
+  type PullRequestRequest,
 } from "./protocol.js";
 
 import type { BrokerConfig } from "./config.js";
@@ -294,6 +295,73 @@ export async function startGitBroker(config: BrokerConfig) {
         );
         throw error;
       }
+    });
+  });
+  api.post("/pulls", bodyLimit({ maxSize: 80 * 1024 }), async (c) => {
+    let request: PullRequestRequest;
+    try {
+      request = await c.req.json();
+    } catch {
+      throw new BrokerError("Invalid JSON request");
+    }
+    if (
+      !request ||
+      typeof request.head !== "string" ||
+      request.head.length > 245 ||
+      typeof request.title !== "string" ||
+      !request.title.trim() ||
+      request.title.length > 256 ||
+      typeof request.body !== "string" ||
+      request.body.length > 65536 ||
+      typeof request.draft !== "boolean" ||
+      (request.base !== undefined &&
+        (typeof request.base !== "string" ||
+          !request.base ||
+          request.base.length > 245))
+    )
+      throw new BrokerError("Invalid pull request");
+    const box = c.get("box");
+    const id = `${c.req.param("owner")}/${c.req.param("repo")}`;
+    const ref = "refs/heads/" + request.head;
+    if (!ref.startsWith(`refs/heads/box/${box.id}/`))
+      throw new BrokerError("Head is outside this box's branch namespace", 403);
+    try {
+      await git(["check-ref-format", ref]);
+      if (request.base)
+        await git(["check-ref-format", "refs/heads/" + request.base]);
+    } catch {
+      throw new BrokerError("Invalid branch name");
+    }
+    return serialize(id, async () => {
+      const entry = ownership[`${id}\0${ref}`];
+      if (!entry || entry.boxId !== box.id || entry.status !== "owned")
+        throw new BrokerError(
+          "Branch is not recorded as owned by this box; push it first",
+          403,
+        );
+      const upstream = repositories.get(id)!;
+      if (!upstream.createPullRequest)
+        throw new BrokerError("Pull requests require a GitHub upstream", 400);
+      const refs = await remoteRefs(upstream.git, upstream.url);
+      if (!refs.some((r) => r.name === ref))
+        throw new BrokerError(
+          "Head branch does not exist upstream; push it first",
+          409,
+        );
+      const result = await upstream.createPullRequest(request);
+      appendFileSync(
+        join(config.stateDir, "audit.jsonl"),
+        JSON.stringify({
+          at: new Date().toISOString(),
+          boxId: box.id,
+          repository: id,
+          ref,
+          outcome: result.created ? "pr-created" : "pr-found",
+          number: result.number,
+        }) + "\n",
+        { mode: 0o600 },
+      );
+      return c.json(result);
     });
   });
   app.route("/v1/repos/:owner/:repo", api);

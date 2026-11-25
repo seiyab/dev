@@ -9,14 +9,19 @@ import {
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import type { BrokerConfig } from "./config.js";
-import { isRepositoryId } from "./protocol.js";
+import { isRepositoryId, validBaseBranches } from "./protocol.js";
 
 export const BROKER_CREDENTIALS_DIR = "/home/node/.broker-credentials";
 export const BOX_CAPABILITY_DIR = "/home/node/.box-capability";
 export interface ProvisionInput {
   boxId: string;
   appId: string;
-  repositories: { id: string; repositoryId: number; installationId: number }[];
+  repositories: {
+    id: string;
+    repositoryId: number;
+    installationId: number;
+    baseBranches?: string[];
+  }[];
 }
 export interface ProvisionOutputs {
   credentialsDir: string;
@@ -43,7 +48,8 @@ export function provisionGitHubBroker(
         !Number.isSafeInteger(r.repositoryId) ||
         r.repositoryId < 1 ||
         !Number.isSafeInteger(r.installationId) ||
-        r.installationId < 1,
+        r.installationId < 1 ||
+        (r.baseBranches !== undefined && !validBaseBranches(r.baseBranches)),
     ) ||
     new Set(input.repositories.map((r) => r.id)).size !==
       input.repositories.length ||
@@ -119,6 +125,9 @@ export function provisionGitHubBroker(
       github: {
         repositoryId: r.repositoryId,
         installationId: r.installationId,
+        ...(r.baseBranches === undefined
+          ? {}
+          : { baseBranches: r.baseBranches }),
       },
     })),
     boxes: [

@@ -6,6 +6,7 @@ await build({
     "apps/git-broker/src/index.ts",
     "apps/git-broker/src/healthcheck.ts",
     "apps/git-broker/src/helper.ts",
+    "apps/git-broker/src/cli.ts",
     "apps/git-broker/src/provision-container.ts",
   ],
   outdir: "apps/git-broker/dist",

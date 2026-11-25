@@ -26,3 +26,34 @@ export class BrokerError extends Error {
     super(message);
   }
 }
+
+export interface PullRequestRequest {
+  head: string;
+  title: string;
+  body: string;
+  base?: string;
+  draft: boolean;
+}
+
+export const validBaseBranches = (value: unknown): value is string[] =>
+  Array.isArray(value) &&
+  value.length <= 100 &&
+  value.every(
+    (branch) =>
+      typeof branch === "string" &&
+      branch.length > 0 &&
+      branch.length <= 245 &&
+      !/[\s~^:?*[\\]/.test(branch) &&
+      !branch.startsWith("-") &&
+      !branch.includes("..") &&
+      !branch.includes("@{") &&
+      branch
+        .split("/")
+        .every(
+          (part) =>
+            part &&
+            !part.startsWith(".") &&
+            !part.endsWith(".") &&
+            !part.endsWith(".lock"),
+        ),
+  );

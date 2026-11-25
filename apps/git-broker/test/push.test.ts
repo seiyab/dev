@@ -537,3 +537,45 @@ test("container health probe preserves the configured Host over loopback", async
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("PR API enforces grants, namespace and recorded ownership before GitHub access", async () => {
+  const f = await fixture();
+  try {
+    const path = "/v1/repos/demo/repo/pulls";
+    const request = {
+      head: "box/demo/topic",
+      title: "Change",
+      body: "",
+      draft: false,
+    };
+    assert.equal((await f.api(path, { ...request, title: "" })).status, 400);
+    assert.equal((await f.api(path, { ...request, head: "main" })).status, 403);
+    assert.equal((await f.api(path, request)).status, 403);
+    assert.equal(
+      (await f.api("/v1/repos/other/repo/pulls", request)).status,
+      403,
+    );
+    await f.git(["switch", "-c", request.head]);
+    await f.commit("pr change");
+    await f.git(["push", "origin", "HEAD"]);
+    assert.equal((await f.api(path, request, f.otherToken)).status, 403);
+    const response = await f.api(path, request);
+    assert.equal(response.status, 400);
+    assert.match(await response.text(), /GitHub upstream/);
+    // Exercise the installed CLI against the real broker with tracking remote selection.
+    await assert.rejects(
+      exec(
+        join(helperPath, "box"),
+        ["gh", "pr", "create", "--title", "Change"],
+        {
+          cwd: f.checkout,
+          env: f.env,
+        },
+      ),
+      (error: unknown) =>
+        /GitHub upstream/.test((error as { stderr: string }).stderr),
+    );
+  } finally {
+    await f.close();
+  }
+});

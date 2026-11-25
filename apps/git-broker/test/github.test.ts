@@ -251,6 +251,31 @@ test("provisioning keeps App credentials and box capability separate, preserves 
       await readFile(join(capabilityDir, "box-capability"), "utf8"),
       capability,
     );
+    provisionGitHubBroker(
+      {
+        ...input,
+        repositories: [{ ...repository, baseBranches: ["main", "release"] }],
+      },
+      key,
+      outputs,
+    );
+    assert.deepEqual(
+      JSON.parse(await readFile(join(credentialsDir, "policy.json"), "utf8"))
+        .repositories[0].github.baseBranches,
+      ["main", "release"],
+    );
+    assert.throws(
+      () =>
+        provisionGitHubBroker(
+          {
+            ...input,
+            repositories: [{ ...repository, baseBranches: ["bad..branch"] }],
+          },
+          key,
+          outputs,
+        ),
+      /Invalid provisioning/,
+    );
     provisionGitHubBroker({ ...input, repositories: [] }, key, outputs);
     assert.deepEqual(
       JSON.parse(await readFile(join(credentialsDir, "policy.json"), "utf8"))
@@ -395,6 +420,104 @@ test("stdin provisioning accepts chunked keys, rejects invalid input, and preser
       await readFile(join(outputs.credentialsDir, "policy.json"), "utf8"),
     );
     assert.equal(policy.boxes[0].id, "docker");
+  } finally {
+    await f.close();
+  }
+});
+
+test("PR creation uses a separate narrow token, defaults the base, and reuses open PRs", async () => {
+  const f = await fixture();
+  try {
+    let existing = false;
+    let creates = 0;
+    let race = false;
+    const request = {
+      head: "box/demo/topic",
+      title: "A change",
+      body: "Details",
+      draft: true,
+    };
+    const pr = {
+      number: 12,
+      html_url: "https://github.com/demo/repo/pull/12",
+      head: { ref: request.head, repo: { id: 7 } },
+      base: { ref: "main", repo: { id: 7 } },
+    };
+    const app = new GitHubApp("123", f.key, async (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/access_tokens")) {
+        assert.deepEqual(JSON.parse(init!.body as string), {
+          repository_ids: [7],
+          permissions: { pull_requests: "write" },
+        });
+        return Response.json({
+          token,
+          expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+          permissions: { pull_requests: "write", metadata: "read" },
+        });
+      }
+      assert.equal(
+        new Headers(init?.headers).get("Authorization"),
+        "Bearer " + token,
+      );
+      if (url.pathname === "/repositories/7")
+        return Response.json({
+          id: 7,
+          full_name: "demo/repo",
+          private: false,
+          default_branch: "main",
+        });
+      assert.equal(url.pathname, "/repos/demo/repo/pulls");
+      if (init?.method === "GET") {
+        assert.equal(url.searchParams.get("head"), "demo:box/demo/topic");
+        assert.equal(url.searchParams.get("state"), "open");
+        return Response.json(existing ? [pr] : []);
+      }
+      creates++;
+      assert.deepEqual(JSON.parse(init!.body as string), {
+        ...request,
+        base: "main",
+      });
+      existing = true;
+      if (race) return Response.json({}, { status: 422 });
+      return Response.json(pr);
+    });
+    assert.deepEqual(await app.createPullRequest(repository, request), {
+      number: 12,
+      url: pr.html_url,
+      created: true,
+    });
+    assert.deepEqual(
+      await app.createPullRequest(repository, { ...request, base: "main" }),
+      {
+        number: 12,
+        url: pr.html_url,
+        created: false,
+      },
+    );
+    assert.equal(creates, 1);
+    await assert.rejects(
+      app.createPullRequest(repository, { ...request, base: "other" }),
+      /base branch is not allowed/,
+    );
+    await assert.rejects(
+      app.createPullRequest({ ...repository, baseBranches: [] }, request),
+      /base branch is not allowed/,
+    );
+    await assert.rejects(
+      app.createPullRequest(
+        { ...repository, baseBranches: ["main", "release"] },
+        { ...request, base: "release" },
+      ),
+      /different or disallowed base/,
+    );
+    existing = false;
+    race = true;
+    assert.equal(
+      (await app.createPullRequest(repository, request)).created,
+      false,
+    );
+    assert.equal(creates, 2);
   } finally {
     await f.close();
   }

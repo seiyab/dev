@@ -4,8 +4,8 @@ This is the first stage of the broker design in [DESIGN.md](../../DESIGN.md#gith
 It exercises real Git pushes against a **local test bare repository**, with no
 GitHub credentials or GitHub writes. For the separate Compose service with
 GitHub App authentication, see
-[GitHub publishing setup](GITHUB.md). PR operations and the `box` CLI remain a
-later stage.
+[GitHub publishing setup](GITHUB.md), including `box gh pr create`.
+PR creation requires a GitHub upstream; the local prototype only exercises Git pushes.
 
 ## Try it
 

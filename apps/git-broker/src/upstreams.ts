@@ -3,13 +3,26 @@ import { isAbsolute } from "node:path";
 import type { BrokerConfig } from "./config.js";
 import { brokerGit, type BrokerGit } from "./git.js";
 import { GitHubApp } from "./github.js";
-import { isRepositoryId } from "./protocol.js";
+import {
+  type PullRequestRequest,
+  isRepositoryId,
+  validBaseBranches,
+} from "./protocol.js";
 
 export async function createUpstreams(config: BrokerConfig) {
   const app = config.githubApp
     ? new GitHubApp(config.githubApp.appId, config.githubApp.privateKeyFile)
     : undefined;
-  const repositories = new Map<string, { url: string; git: BrokerGit }>();
+  const repositories = new Map<
+    string,
+    {
+      url: string;
+      git: BrokerGit;
+      createPullRequest?: (
+        request: PullRequestRequest,
+      ) => Promise<{ number: number; url: string; created: boolean }>;
+    }
+  >();
   const localGit = brokerGit(config.stateDir);
   for (const repository of config.repositories) {
     if (
@@ -27,7 +40,9 @@ export async function createUpstreams(config: BrokerConfig) {
         !Number.isSafeInteger(repository.github.repositoryId) ||
         repository.github.repositoryId < 1 ||
         !Number.isSafeInteger(repository.github.installationId) ||
-        repository.github.installationId < 1
+        repository.github.installationId < 1 ||
+        (repository.github.baseBranches !== undefined &&
+          !validBaseBranches(repository.github.baseBranches))
       )
         throw new Error("Invalid GitHub repository grant");
       const identity = { id: repository.id, ...repository.github };
@@ -57,7 +72,18 @@ export async function createUpstreams(config: BrokerConfig) {
     }
     if ([...repositories.values()].some((r) => r.url === url))
       throw new Error("Repository aliases must not share an upstream");
-    repositories.set(repository.id, { url, git });
+    repositories.set(repository.id, {
+      url,
+      git,
+      createPullRequest:
+        repository.github && app
+          ? (request) =>
+              app.createPullRequest(
+                { id: repository.id, ...repository.github! },
+                request,
+              )
+          : undefined,
+    });
   }
   return repositories;
 }

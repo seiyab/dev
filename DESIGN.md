@@ -204,8 +204,8 @@ not be described as enforcing the future GitHub policy.
 
 Status: agreed design. The [local publishing prototype](apps/git-broker/README.md)
 and isolated Compose service with GitHub App authentication are implemented;
-PR operations are not implemented yet. Live App/repository validation is required
-when provisioning the user's installation. GitHub authentication precedes
+`box gh pr create` is implemented. Real GitHub pushes have been confirmed;
+live PR creation remains to be validated after updating App permissions. GitHub authentication precedes
 worktree-backed sessions. GitHub is the only initial provider, and private
 clone/fetch is deferred. Public clone/fetch continues directly against GitHub.
 
@@ -296,7 +296,8 @@ rather than silently applying only part of a request.
 ### GitHub command interfaces
 
 Provide one narrow, operation-specific broker HTTP API and a small `box` CLI.
-Start with `box pr create`, `box pr view`, and `box issue view`; provide human-readable
+Start with `box gh pr create`; future reads can use `box gh pr view` and
+`box gh issue view`. Provide human-readable
 output and `--json` for scripts and agents. Both humans and coding agents use the
 same commands and policy. CLI commands must not accept arbitrary authenticated
 HTTP destinations or unrestricted API paths.
@@ -324,7 +325,10 @@ compatibility project.
    in responses or logs.
 3. Add the narrow GitHub API operations and `box` CLI, beginning with PR creation
    and issue/PR reads. Validate the head's repository and recorded box ownership,
-   the allowed base, and App/bot attribution. Record operation metadata for audit
+   the allowed base, and App/bot attribution. PR creation is implemented: omitted
+   repository base grants allow the default branch only; explicit `baseBranches`
+   lists replace that policy. Git and PR operations use separate permission-scoped
+   tokens. Issue/PR reads remain deferred. Record operation metadata for audit
    without storing credential values or terminal contents.
 4. Add MCP, more authenticated operations, private reads, or work-session GUI
    integration only when needed. Worktree-backed sessions can build on the stable
