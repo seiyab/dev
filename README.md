@@ -111,11 +111,17 @@ unless you intend to delete that data.
 The prototype uses separate volumes and configuration from the original
 `compose.yaml`. It does not mount your host projects, SSH agent, agent
 credentials, or Docker socket. It runs as a non-root user with dropped Linux
-capabilities and no privilege escalation. It includes bash, Git, tmux, Neovim,
+capabilities and no privilege escalation. It includes Zsh, Bash, Git, tmux, Neovim,
 lazygit, and Codex CLI, plus the Neovim configuration described below. Outbound
 network access is available; this is not an egress sandbox.
 
 ## Container tools
+
+New workbench terminals open in Zsh with vi editing enabled. Press **Escape**
+for command mode and **i** to return to insert mode. The prompt shows the
+current directory and the Git branch, or the short commit ID when HEAD is
+detached. Shell history is shared across panes and persists in the workbench
+state volume across container restarts and rebuilds.
 
 The workbench image includes pinned releases of
 [Neovim 0.12.6](https://github.com/neovim/neovim/releases/tag/v0.12.6),
