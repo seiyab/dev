@@ -11,6 +11,8 @@ services:
     volumes:
       - workbench-projects:/home/node/workspace
       - workbench-state:/home/node/.workbench
+      - workbench-codex:/home/node/.codex
+      - workbench-nvim:/home/node/.local/share/nvim
     cap_drop:
       - ALL
     security_opt:
@@ -21,3 +23,5 @@ services:
 volumes:
   workbench-projects:
   workbench-state:
+  workbench-codex:
+  workbench-nvim:

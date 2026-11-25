@@ -105,7 +105,7 @@ edits share revision checks, so conflicting edits from another browser require r
 docker compose -f compose.workbench.yaml down
 ```
 
-This preserves both project and authentication volumes. Do not add `--volumes`
+This preserves the project, workbench state, Codex, and Neovim data volumes. Do not add `--volumes`
 unless you intend to delete that data.
 
 The prototype uses separate volumes and configuration from the original
@@ -134,15 +134,18 @@ editor inside the container is `nvim`.
 pinned to `7a7e3830290bf2b7805de2d0a9cbfa76bee18327`. Its plugin manager installs
 plugins on first launch; allow network access while that completes. Language
 servers and other external tools are managed by the configuration's Mason setup.
-Neovim configuration, plugins, and downloaded tools currently live in the
-container filesystem and reset when the container is recreated. To use a different
-config commit, rebuild with `docker compose -f compose.workbench.yaml build
+The Neovim data volume preserves lazy.nvim, its installed plugins, and Mason
+downloads across container recreation. The image supplies the Neovim configuration.
+To use a different config commit, rebuild with `docker compose -f compose.workbench.yaml build
 --build-arg NVIM_CONFIG_REVISION=<commit>`, then start the updated image.
 
 After rebuilding the image, run `nvim`, `lazygit`, or `codex` from a workbench
 terminal. For Codex authentication, run `codex login --device-auth` inside the
-container. No host credentials are mounted; Codex login state is also local to the
-container and must be renewed after container recreation.
+container. The Codex volume preserves container-local login credentials, session
+history, and settings across container recreation. Use `codex resume` to reopen a
+saved session. The image provides box-wide Codex guidance through
+`~/.codex/AGENTS.md`. Update [workbench/AGENTS.md](workbench/AGENTS.md) and rebuild
+the image to change that guidance.
 
 ## Git publishing
 
