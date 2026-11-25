@@ -29,11 +29,16 @@
   font-size: 12px;
   padding: 5px 8px;
 }
-.host {
+.terminalArea {
+  display: flex;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
   padding: 6px;
+}
+.host {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 .host :global(.xterm) {
   height: 100%;

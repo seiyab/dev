@@ -68,12 +68,14 @@ function TerminalPaneInstance({
           </button>
         </div>
       </div>
-      <div
-        class={styles.host}
-        ref={host}
-        role="region"
-        aria-labelledby={`title-${id}`}
-      />
+      <div class={styles.terminalArea}>
+        <div
+          class={styles.host}
+          ref={host}
+          role="region"
+          aria-labelledby={`title-${id}`}
+        />
+      </div>
       <footer class={styles.footer}>
         <span class={`${styles.indicator} ${connected ? styles.online : ""}`} />
         <span role="status">{status}</span>
