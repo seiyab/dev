@@ -171,8 +171,21 @@ terminal. The check tests readability without displaying any credential contents
 )
 ```
 
-If sandbox startup fails, check the Docker runtime's namespace support and its
-seccomp and AppArmor logs before changing the workbench's security options.
+The image installs system Bubblewrap. If Codex fails with `bwrap: No permissions
+to create a new namespace`, rebuild and recreate the workbench with the
+namespace compatibility override:
+
+```sh
+docker compose -f compose.workbench.yaml -f compose.workbench.userns.yaml up --build -d
+```
+
+Include `-f compose.github.yaml` if you already use GitHub publishing. The
+override disables Docker's outer seccomp filter for the workbench service.
+AppArmor stays active where enabled, and Codex retains its inner sandbox. The
+workbench runs as a non-root user with capabilities dropped and
+`no-new-privileges`. If namespace creation still fails, check whether the Docker
+host permits unprivileged user namespaces and inspect its AppArmor audit logs
+before changing the AppArmor profile.
 
 ## Git publishing
 

@@ -1,0 +1,4 @@
+services:
+  workbench:
+    security_opt:
+      - seccomp=unconfined
