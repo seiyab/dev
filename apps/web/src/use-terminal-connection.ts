@@ -44,14 +44,20 @@ export function useTerminalConnection({
     let retry: ReturnType<typeof setTimeout> | undefined;
     let ws: WebSocket | undefined;
     let manuallyDetached = false;
+    // xterm draws its own colors, so pass the resolved CSS palette.
+    const styles = getComputedStyle(host.current);
+    const color = (token: string) => styles.getPropertyValue(token).trim();
     const terminal = new Terminal({
       cursorBlink: true,
       fontSize: 14,
       fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", monospace',
+      minimumContrastRatio: 4.5,
       theme: {
-        background: "#10151b",
-        foreground: "#dce6ef",
-        cursor: "#80d5b0",
+        background: color("--terminal-background"),
+        foreground: color("--terminal-foreground"),
+        cursor: color("--terminal-cursor"),
+        cursorAccent: color("--terminal-background"),
+        selectionBackground: color("--terminal-selection"),
       },
       scrollback: 5000,
     });

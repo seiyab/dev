@@ -1,9 +1,32 @@
 /* Shared theme, reset, and native controls. Component styles live in CSS Modules. */
 :root {
+  --background: #f6f8fa;
+  --surface: #ffffff;
+  --text: #172635;
+  --muted: #506477;
+  --border: #d8e2eb;
+  --control-border: #8194a6;
+  --control-hover: #edf5fb;
+  --accent: #0369a1;
+  --accent-hover: #075985;
+  --accent-contrast: #ffffff;
+  --accent-tint: #e0f2fe;
+  --accent-tint-border: #bae6fd;
+  --accent-ring: #0ea5e944;
+  --backdrop: #17263566;
+  --error: #b42318;
+  --warning: #a15c07;
+  --success: #16805d;
+
+  --terminal-background: var(--surface);
+  --terminal-foreground: var(--text);
+  --terminal-cursor: var(--accent);
+  --terminal-selection: var(--accent-tint-border);
+
   font-family: system-ui, sans-serif;
-  color: #dce6ef;
-  background: #10151b;
-  color-scheme: dark;
+  color: var(--text);
+  background: var(--background);
+  color-scheme: light;
 }
 * {
   box-sizing: border-box;
@@ -12,16 +35,16 @@ body {
   margin: 0;
 }
 button {
-  border: 1px solid #3e5262;
-  background: #223140;
-  color: #e7eff5;
+  border: 1px solid var(--control-border);
+  background: var(--surface);
+  color: var(--text);
   border-radius: 5px;
   padding: 8px 12px;
   cursor: pointer;
   font: inherit;
 }
 button:hover {
-  background: #304555;
+  background: var(--control-hover);
 }
 button:disabled {
   opacity: 0.6;
@@ -29,24 +52,25 @@ button:disabled {
 }
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid #80d5b0;
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 input {
   width: 100%;
-  border: 1px solid #3e5262;
+  border: 1px solid var(--control-border);
   border-radius: 5px;
   padding: 12px;
-  background: #151c24;
+  color: var(--text);
+  background: var(--surface);
   font: inherit;
 }
 kbd {
   font:
     11px ui-monospace,
     monospace;
-  color: #80d5b0;
+  color: var(--accent);
   padding: 2px 4px;
 }
 [role="alert"] {
-  color: #ffad9c;
+  color: var(--error);
 }

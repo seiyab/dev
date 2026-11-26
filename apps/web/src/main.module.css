@@ -8,8 +8,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 18px 24px;
-  border-bottom: 1px solid #2a3541;
-  background: #151c24;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 .brand {
   font-weight: 650;
@@ -21,17 +21,18 @@
 }
 .badge,
 .eyebrow {
-  color: #80d5b0;
+  color: var(--accent);
   font-size: 10px;
   letter-spacing: 0.12em;
 }
 .badge {
-  border: 1px solid #335a4d;
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-tint-border);
   padding: 3px 6px;
   border-radius: 4px;
 }
 .subtitle {
-  color: #9aabba;
+  color: var(--muted);
   font-size: 12px;
 }
 .login {
@@ -51,7 +52,7 @@
   letter-spacing: -0.04em;
 }
 .description {
-  color: #9aabba;
+  color: var(--muted);
   line-height: 1.6;
 }
 .eyebrow,
@@ -66,11 +67,12 @@
 .submit {
   margin-top: 16px;
   width: 100%;
-  background: #285645;
-  border-color: #41775f;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
 }
 .submit:hover {
-  background: #304555;
+  background: var(--accent-hover);
 }
 @media (max-width: 500px) {
   .subtitle {

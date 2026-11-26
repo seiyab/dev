@@ -5,7 +5,7 @@
   gap: 12px;
   padding: 10px 16px;
   font-size: 13px;
-  border-bottom: 1px solid #2a3541;
+  border-bottom: 1px solid var(--border);
 }
 .toolbarActions {
   display: flex;
@@ -17,7 +17,7 @@
   padding: 5px 8px;
 }
 .muted {
-  color: #9aabba;
+  color: var(--muted);
 }
 .canvas {
   flex: 1;
@@ -26,21 +26,22 @@
   margin: 5px;
 }
 .pane {
+  background: var(--surface);
   position: absolute;
   overflow: hidden;
-  border: 1px solid #354452;
+  border: 1px solid var(--border);
   border-radius: 4px;
 }
 .activePane {
-  border-color: #80d5b0;
-  box-shadow: 0 0 0 1px #80d5b044;
-  --pane-header-background: #1a302b;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-ring);
+  --pane-header-background: var(--accent-tint);
 }
 .status {
   padding: 9px 16px;
-  background: #151c24;
-  border-top: 1px solid #2a3541;
-  color: #adc0cd;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  color: var(--muted);
   font-size: 12px;
   min-height: 35px;
 }
@@ -51,15 +52,15 @@
   padding: 16px;
 }
 .dialog {
-  background: #151c24;
-  color: #dce6ef;
-  border: 1px solid #526475;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--control-border);
   border-radius: 8px;
   width: min(640px, 90vw);
   padding: 20px;
 }
 .dialog::backdrop {
-  background: #04090dcc;
+  background: var(--backdrop);
 }
 .dialogHeading {
   display: flex;

@@ -11,9 +11,9 @@
   padding: 7px 10px;
   min-height: 41px;
   gap: 8px;
-  border-bottom: 1px solid #26313c;
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
-  background: var(--pane-header-background, transparent);
+  background: var(--pane-header-background, var(--surface));
 }
 .bar > span {
   overflow: hidden;
@@ -34,6 +34,7 @@
   flex: 1;
   min-height: 0;
   padding: 6px;
+  background: var(--terminal-background);
 }
 .host {
   flex: 1;
@@ -47,19 +48,19 @@
   padding: 6px 10px;
   font-size: 11px;
   min-height: 28px;
-  border-top: 1px solid #26313c;
+  border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 9px;
-  color: #9aabba;
+  color: var(--muted);
 }
 .indicator {
   width: 6px;
   height: 6px;
-  background: #e5b76d;
+  background: var(--warning);
   border-radius: 50%;
   flex-shrink: 0;
 }
 .online {
-  background: #80d5b0;
+  background: var(--success);
 }
