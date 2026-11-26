@@ -149,23 +149,25 @@ the image to change that guidance.
 
 The image also supplies a Codex permission profile under `/etc/codex`. It allows
 workspace edits and network access without command approval prompts. Sandboxed
-commands cannot read Codex state, the workbench access key, or the terminal
-control socket. The profile inherits Codex's workspace protections for metadata
+commands are denied reads of Codex's login file, session transcripts and history,
+the workbench access key, and the terminal control socket. The profile inherits
+Codex's workspace protections for metadata
 such as `.git`. The Git helper still has access to the broker capability when
 GitHub publishing is configured.
 
-After rebuilding, verify the sandbox from a workbench terminal:
+After rebuilding and signing in to Codex, verify the sandbox from a workbench
+terminal. The check tests readability without displaying any credential contents:
 
 ```sh
 (
   set -e
-  probe=$(mktemp /home/node/.codex/sandbox-probe.XXXXXX)
-  trap 'rm -- "$probe"' EXIT
+  credential=/home/node/.codex/auth.json
+  test -r "$credential"
   codex sandbox linux -- sh -ec '
     test ! -r "$1"
     scratch=$(mktemp /home/node/workspace/sandbox-probe.XXXXXX)
     rm -- "$scratch"
-  ' sh "$probe"
+  ' sh "$credential"
 )
 ```
 

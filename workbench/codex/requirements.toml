@@ -5,8 +5,13 @@ allowed_approval_policies = ["never"]
 workbench = true
 
 [permissions.filesystem]
+# Codex exposes its own command helpers from .codex/tmp to the sandbox.
 deny_read = [
-  "/home/node/.codex",
+  "/home/node/.codex/auth.json",
+  "/home/node/.codex/history.jsonl",
+  "/home/node/.codex/session_index.jsonl",
+  "/home/node/.codex/sessions",
+  "/home/node/.codex/archived_sessions",
   "/home/node/.workbench",
   "/home/node/.history",
   "/tmp/tmux-1000",
