@@ -1,0 +1,14 @@
+approval_policy = "never"
+default_permissions = "workbench"
+
+[permissions.workbench]
+extends = ":workspace"
+
+[permissions.workbench.filesystem]
+"/home/node/workspace" = "write"
+
+[permissions.workbench.network]
+enabled = true
+
+[shell_environment_policy]
+exclude = ["OPENAI_API_KEY", "CODEX_API_KEY", "OPENAI_ACCESS_TOKEN"]

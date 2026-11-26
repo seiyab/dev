@@ -1,0 +1,13 @@
+default_permissions = "workbench"
+allowed_approval_policies = ["never"]
+
+[allowed_permission_profiles]
+workbench = true
+
+[permissions.filesystem]
+deny_read = [
+  "/home/node/.codex",
+  "/home/node/.workbench",
+  "/home/node/.history",
+  "/tmp/tmux-1000",
+]

@@ -25,6 +25,7 @@ RUN pnpm install --frozen-lockfile && pnpm build \
 
 COPY --chown=node:node .zshrc /home/node/.zshrc
 COPY workbench/AGENTS.md /opt/workbench/AGENTS.md
+COPY workbench/codex/ /etc/codex/
 USER node
 ARG NVIM_CONFIG_REVISION=7a7e3830290bf2b7805de2d0a9cbfa76bee18327
 RUN ln -s /opt/workbench/AGENTS.md /home/node/.codex/AGENTS.md \

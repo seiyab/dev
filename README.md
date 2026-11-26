@@ -147,6 +147,31 @@ saved session. The image provides box-wide Codex guidance through
 `~/.codex/AGENTS.md`. Update [workbench/AGENTS.md](workbench/AGENTS.md) and rebuild
 the image to change that guidance.
 
+The image also supplies a Codex permission profile under `/etc/codex`. It allows
+workspace edits and network access without command approval prompts. Sandboxed
+commands cannot read Codex state, the workbench access key, or the terminal
+control socket. The profile inherits Codex's workspace protections for metadata
+such as `.git`. The Git helper still has access to the broker capability when
+GitHub publishing is configured.
+
+After rebuilding, verify the sandbox from a workbench terminal:
+
+```sh
+(
+  set -e
+  probe=$(mktemp /home/node/.codex/sandbox-probe.XXXXXX)
+  trap 'rm -- "$probe"' EXIT
+  codex sandbox linux -- sh -ec '
+    test ! -r "$1"
+    scratch=$(mktemp /home/node/workspace/sandbox-probe.XXXXXX)
+    rm -- "$scratch"
+  ' sh "$probe"
+)
+```
+
+If sandbox startup fails, check the Docker runtime's namespace support and its
+seccomp and AppArmor logs before changing the workbench's security options.
+
 ## Git publishing
 
 Use [GitHub publishing setup](apps/git-broker/GITHUB.md) to enable scoped pushes
